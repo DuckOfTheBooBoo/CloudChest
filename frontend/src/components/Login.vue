@@ -68,6 +68,7 @@ const submit = handleSubmit(async values =>  {
             label="E-mail"
             id="email"
             variant="outlined"
+            spellcheck="false"
           ></v-text-field>
           <v-text-field
             :append-inner-icon="visible ? 'mdi-eye-off' : 'mdi-eye'"
@@ -78,6 +79,7 @@ const submit = handleSubmit(async values =>  {
             label="Password"
             id="password"
             variant="outlined"
+            spellcheck="false"
             @click:append-inner="visible = !visible"
           ></v-text-field>
         </v-card-text>
