@@ -1,5 +1,10 @@
 <script setup lang="ts">
+import { ref } from "vue";
+
 // import Item from "./Item.vue";
+const uploadFileDialog = ref<boolean>(false);
+const upFileDialogActivator = ref(undefined);
+
 </script>
 
 <template>
@@ -18,7 +23,10 @@
             </v-btn>
           </template>
           <v-list>
-            <v-list-item @click="console.log('Upload file')">
+            <v-list-item
+              ref="upFileDialogActivator"
+              @click="console.log('Upload file')"
+            >
               <v-icon>mdi-upload</v-icon> Upload file
             </v-list-item>
             <v-divider></v-divider>
@@ -45,6 +53,21 @@
         Trash
       </v-list-item>
     </v-navigation-drawer>
+
+    <!-- DIALOGS -->
+    <v-dialog v-model="uploadFileDialog" :activator="upFileDialogActivator" max-width="30rem" persistent>
+      <template v-slot:default="{ isActive }">
+        <v-card title="Upload file">
+          <v-card-text>
+            <v-file-input accept="image/*" label="File input"></v-file-input>
+          </v-card-text>
+          <v-card-actions>
+            <v-btn @click="uploadFileDialog=false">Cancel</v-btn>
+            <v-btn variant="tonal" color="blue" @click="uploadFileDialog=false">Upload</v-btn>
+          </v-card-actions>
+        </v-card>
+      </template>
+    </v-dialog>
 
     <v-main>
       <v-item-group selected-class="bg-primary">
@@ -106,7 +129,6 @@
         </v-container>
       </v-item-group>
     </v-main>
-    
   </v-layout>
 </template>
 
