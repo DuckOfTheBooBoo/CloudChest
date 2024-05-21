@@ -5,6 +5,9 @@ import { ref } from "vue";
 const uploadFileDialog = ref<boolean>(false);
 const upFileDialogActivator = ref(undefined);
 
+const newFolderDialog = ref<boolean>(false);
+const newFolderDialogActivator = ref(undefined);
+
 </script>
 
 <template>
@@ -23,18 +26,15 @@ const upFileDialogActivator = ref(undefined);
             </v-btn>
           </template>
           <v-list>
-            <v-list-item
-              ref="upFileDialogActivator"
-              @click="console.log('Upload file')"
-            >
+            <v-list-item @click="()=>{}" ref="upFileDialogActivator">
               <v-icon>mdi-upload</v-icon> Upload file
             </v-list-item>
             <v-divider></v-divider>
-            <v-list-item @click="console.log('Upload folder')">
-              <v-icon>mdi-folder-upload</v-icon> Upload folder
-            </v-list-item>
-            <v-list-item @click="console.log('New folder')">
+            <v-list-item @click="()=>{}" ref="newFolderDialogActivator">
               <v-icon>mdi-folder-plus</v-icon> New folder
+            </v-list-item>
+            <v-list-item @click="()=>{}">
+              <v-icon>mdi-folder-upload</v-icon> Upload folder
             </v-list-item>
           </v-list>
         </v-menu>
@@ -54,16 +54,31 @@ const upFileDialogActivator = ref(undefined);
       </v-list-item>
     </v-navigation-drawer>
 
-    <!-- DIALOGS -->
+    <!-- UPLOAD FILE DIALOG -->
     <v-dialog v-model="uploadFileDialog" :activator="upFileDialogActivator" max-width="30rem" persistent>
       <template v-slot:default="{ isActive }">
         <v-card title="Upload file">
           <v-card-text>
-            <v-file-input accept="image/*" label="File input"></v-file-input>
+            <v-file-input variant="outlined" accept="image/*" label="File input" counter show-size></v-file-input>
           </v-card-text>
           <v-card-actions>
             <v-btn @click="uploadFileDialog=false">Cancel</v-btn>
             <v-btn variant="tonal" color="blue" @click="uploadFileDialog=false">Upload</v-btn>
+          </v-card-actions>
+        </v-card>
+      </template>
+    </v-dialog>
+
+    <!-- NEW FOLDER DIALOG -->
+    <v-dialog v-model="newFolderDialog" :activator="newFolderDialogActivator" max-width="30rem" persistent>
+      <template v-slot:default="{ isActive }">
+        <v-card title="Create new folder">
+          <v-card-text>
+            <v-text-field label="Folder name" variant="outlined"></v-text-field>
+          </v-card-text>
+          <v-card-actions>
+            <v-btn @click="newFolderDialog=false">Cancel</v-btn>
+            <v-btn variant="tonal" color="blue" @click="newFolderDialog=false">Create</v-btn>
           </v-card-actions>
         </v-card>
       </template>
