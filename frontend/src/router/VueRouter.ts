@@ -9,7 +9,7 @@ import { createWebHistory, createRouter } from 'vue-router';
 import checkTokenValidation from '../utils/checkTokenValidation';
 
 const routes = [
-  { path: '/', component: Login },
+  { path: '/', redirect: '/login' },
   { path: '/login', component: Login },
   { path: '/signup', component: SignUp },
   { path: '/explorer', redirect: '/explorer/files' },
