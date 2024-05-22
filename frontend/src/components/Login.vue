@@ -1,6 +1,19 @@
 <script setup lang="ts">
 import { ref } from "vue";
 import { useField, useForm } from "vee-validate";
+import axios from "axios";
+import { useRouter } from "vue-router";
+
+const router = useRouter();
+
+interface LoginBody {
+  email: string;
+  password: string;
+}
+
+interface TokenResponse {
+    token: string
+}
 
 const { handleSubmit } = useForm({
   validationSchema: {
@@ -10,9 +23,9 @@ const { handleSubmit } = useForm({
       return "Must be a valid e-mail.";
     },
     password(value: string) {
-      if (/(?=.*\d).{8}/.test(value)) return true;
+      if (/(?=.*\d).{6}/.test(value)) return true;
 
-      return "Password must consists of 8 characters and include numbers.";
+      return "Password must consists of 6 characters and include numbers.";
     },
   },
 });
@@ -22,16 +35,30 @@ const password = useField("password");
 
 let visible = ref(false);
 let loading = ref(false);
-let stages = ["initializing", "process", "done"];
 let currentProgMsg = ref("");
 
 const submit = handleSubmit(async values =>  {
-    currentProgMsg.value = "";
-    loading.value = true;
-    for (let i = 0; i < stages.length; i++) {
-      currentProgMsg.value = stages[i];
-      await new Promise((resolve) => setTimeout(resolve, 2000));
+    const body: LoginBody = {
+      email: values.email,
+      password: values.password
     }
+
+    try {
+      loading.value = true
+      const response = await axios.post<TokenResponse>('http://localhost:3000/api/users/login', body);
+      if (response.status == 200) {
+        localStorage.setItem('token', response.data.token);
+        loading.value = false;
+        currentProgMsg.value = "Login successful. Redirecting...";
+        router.push('/explorer');
+      }
+      else {
+        currentProgMsg.value = "Login failed. Please try again.";
+      }
+    } catch(error: Error | any) {
+      console.error(error);
+      currentProgMsg.value = error.response.data.error;
+    } 
     loading.value = false;
   })
 </script>
@@ -61,6 +88,7 @@ const submit = handleSubmit(async values =>  {
       <form @submit.prevent="submit">
         <v-card-text>
           <v-text-field
+            class="tw-mb-2"
             prepend-inner-icon="mdi-email-outline"
             density="compact"
             v-model="email.value.value"
