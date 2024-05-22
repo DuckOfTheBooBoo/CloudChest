@@ -7,6 +7,7 @@ import (
 	"github.com/DuckOfTheBooBoo/web-gallery-app/backend/middlewares"
 	"github.com/DuckOfTheBooBoo/web-gallery-app/backend/router"
 	"github.com/DuckOfTheBooBoo/web-gallery-app/backend/utils"
+	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 )
 
@@ -23,6 +24,9 @@ func main() {
 		log.Fatal(err)
 		return
 	}
+
+	// Allow cors
+	r.Use(cors.Default())
 
 	// Define root endpoint
 	api := r.Group("/api")

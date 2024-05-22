@@ -95,8 +95,8 @@ func UserLogin(c *gin.Context) {
 	err = db.First(&user, "email = ?", loginBody.Email).Error
 
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"error": err.Error(),
+		c.JSON(http.StatusUnauthorized, gin.H{
+			"error": "User not found",
 		})
 		log.Println(err)
 		return
