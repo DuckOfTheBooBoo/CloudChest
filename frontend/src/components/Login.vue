@@ -12,13 +12,18 @@ interface LoginBody {
 }
 
 interface TokenResponse {
-    token: string
+  token: string;
 }
 
 const { handleSubmit } = useForm({
   validationSchema: {
     email(value: string) {
-      if (/^([+\w-]+(?:\.[+\w-]+)*)@(?:[a-zA-Z0-9](?:[a-zA-Z0-9-]*[a-zA-Z0-9])?\.)+[a-zA-Z]{2,}$/.test(value)) return true;
+      if (
+        /^([+\w-]+(?:\.[+\w-]+)*)@(?:[a-zA-Z0-9](?:[a-zA-Z0-9-]*[a-zA-Z0-9])?\.)+[a-zA-Z]{2,}$/.test(
+          value
+        )
+      )
+        return true;
 
       return "Must be a valid e-mail.";
     },
@@ -37,30 +42,32 @@ let visible = ref(false);
 let loading = ref(false);
 let currentProgMsg = ref("");
 
-const submit = handleSubmit(async values =>  {
-    const body: LoginBody = {
-      email: values.email,
-      password: values.password
-    }
+const submit = handleSubmit(async (values) => {
+  const body: LoginBody = {
+    email: values.email,
+    password: values.password,
+  };
 
-    try {
-      loading.value = true
-      const response = await axios.post<TokenResponse>('http://localhost:3000/api/users/login', body);
-      if (response.status == 200) {
-        localStorage.setItem('token', response.data.token);
-        loading.value = false;
-        currentProgMsg.value = "Login successful. Redirecting...";
-        router.push('/explorer');
-      }
-      else {
-        currentProgMsg.value = "Login failed. Please try again.";
-      }
-    } catch(error: Error | any) {
-      console.error(error);
-      currentProgMsg.value = error.response.data.error;
-    } 
-    loading.value = false;
-  })
+  try {
+    loading.value = true;
+    const response = await axios.post<TokenResponse>(
+      "http://localhost:3000/api/users/login",
+      body
+    );
+    if (response.status == 200) {
+      localStorage.setItem("token", response.data.token);
+      loading.value = false;
+      currentProgMsg.value = "Login successful. Redirecting...";
+      router.push("/explorer");
+    } else {
+      currentProgMsg.value = "Login failed. Please try again.";
+    }
+  } catch (error: Error | any) {
+    console.error(error);
+    currentProgMsg.value = error.response.data.error;
+  }
+  loading.value = false;
+});
 </script>
 
 <template>
@@ -125,7 +132,9 @@ const submit = handleSubmit(async values =>  {
         </v-card-actions>
       </form>
       <div class="pa-2 d-flex justify-center align-center">
-        <RouterLink to="/signup" class="text-grey-lighten-2 text-decoration-none"
+        <RouterLink
+          to="/signup"
+          class="text-grey-lighten-2 text-decoration-none"
           >Sign Up instead?</RouterLink
         >
       </div>

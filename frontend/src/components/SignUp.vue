@@ -1,6 +1,21 @@
 <script setup lang="ts">
 import { ref } from "vue";
 import { useField, useForm } from "vee-validate";
+import axios from "axios";
+import {useRouter} from "vue-router"
+
+interface SignUpBody {
+  first_name: string;
+  last_name: string;
+  email: string;
+  password: string;
+}
+
+interface ErrorResponse {
+  error: string
+}
+
+const router = useRouter();
 
 const { handleSubmit } = useForm({
   validationSchema: {
@@ -15,7 +30,12 @@ const { handleSubmit } = useForm({
       return "At least 2 characters.";
     },
     email(value: string) {
-      if (/^([+\w-]+(?:\.[+\w-]+)*)@(?:[a-zA-Z0-9](?:[a-zA-Z0-9-]*[a-zA-Z0-9])?\.)+[a-zA-Z]{2,}$/.test(value)) return true;
+      if (
+        /^([+\w-]+(?:\.[+\w-]+)*)@(?:[a-zA-Z0-9](?:[a-zA-Z0-9-]*[a-zA-Z0-9])?\.)+[a-zA-Z]{2,}$/.test(
+          value
+        )
+      )
+        return true;
 
       return "Must be a valid e-mail.";
     },
@@ -34,18 +54,40 @@ const password = useField("password");
 
 let visible = ref(false);
 let loading = ref(false);
-let stages = ["initializing", "process", "done"];
 let currentProgMsg = ref("");
 
-const submit = handleSubmit(async values =>  {
-    currentProgMsg.value = "";
+const submit = handleSubmit(async (values) => {
+  const body: SignUpBody = {
+    first_name: values.first_name,
+    last_name: values.last_name,
+    email: values.email,
+    password: values.password,
+  };
+
+  try {
     loading.value = true;
-    for (let i = 0; i < stages.length; i++) {
-      currentProgMsg.value = stages[i];
-      await new Promise((resolve) => setTimeout(resolve, 2000));
+    const response = await axios.post(
+      "http://localhost:3000/api/users/register",
+      body
+    );
+
+    if (response.status == 201) {
+      loading.value = false;
+      currentProgMsg.value = "Sign up successful. Redirecting...";
+      setTimeout(() => {
+        router.push("/login");
+      }, 1000);
+    } else {
+      const err: ErrorResponse = response.data;
+      currentProgMsg.value = err.error;
     }
-    loading.value = false;
-  })
+    
+  } catch (error: Error | any) {
+    console.error(error);
+    currentProgMsg.value = error.response.data.error;
+  }
+  loading.value = false;
+});
 </script>
 
 <template>
