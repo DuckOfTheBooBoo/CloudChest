@@ -3,11 +3,13 @@ package controllers
 import (
 	"log"
 	"net/http"
+	"time"
 
 	"github.com/DuckOfTheBooBoo/web-gallery-app/backend/models"
 	"github.com/DuckOfTheBooBoo/web-gallery-app/backend/utils"
 	"github.com/gin-gonic/gin"
 	"github.com/go-playground/validator/v10"
+	"github.com/golang-jwt/jwt"
 	"gorm.io/gorm"
 )
 
@@ -60,5 +62,70 @@ func UserCreate(c *gin.Context) {
 
 	c.JSON(http.StatusCreated, gin.H{
 		"user": user,
+	})
+}
+
+func UserLogin(c *gin.Context) {
+	db := c.MustGet("db").(*gorm.DB)
+	validate := validator.New()
+
+	var loginBody struct {
+		Email    string `validate:"required,email"`
+		Password string `validate:"required,min=6"`
+	}
+
+	err := c.BindJSON(&loginBody)
+
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": "No request body (JSON) included.",
+		})
+		return
+	}
+
+	if err := validate.Struct(loginBody); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": err.Error(),
+		})
+		return
+	}
+
+	var user models.User
+
+	err = db.First(&user, "email = ?", loginBody.Email).Error
+
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": err.Error(),
+		})
+		log.Println(err)
+		return
+	}
+
+	if !utils.CheckPassword(loginBody.Password, user.Password) {
+		c.JSON(http.StatusUnauthorized, gin.H{
+			"error": "Invalid credentials",
+		})
+		return
+	}
+
+	userClaim := utils.UserClaims{
+		ID: user.ID,
+		StandardClaims: jwt.StandardClaims{
+			IssuedAt:  time.Now().Unix(),
+			ExpiresAt: time.Now().Add(time.Minute * 15).Unix(),
+		},
+	}
+
+	accessToken, err := utils.GenerateToken(userClaim)
+
+	if err != nil {
+		c.Status(http.StatusInternalServerError)
+		log.Println(err)
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"token": accessToken,
 	})
 }

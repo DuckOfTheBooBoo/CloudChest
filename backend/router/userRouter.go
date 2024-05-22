@@ -10,7 +10,7 @@ func UserRoutes(route *gin.RouterGroup) {
 	user := route.Group("/users") 
 	{
 		user.POST("/register", controllers.UserCreate)
-		user.POST("/login", func(ctx *gin.Context) {})
+		user.POST("/login", controllers.UserLogin)
 		user.PUT("/:userId", middlewares.JWTMiddleware(), func(ctx *gin.Context) {})
 		user.DELETE("/:userId", middlewares.JWTMiddleware(), func(ctx *gin.Context) {})
 	}
