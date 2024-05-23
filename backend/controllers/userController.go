@@ -3,6 +3,7 @@ package controllers
 import (
 	"log"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/DuckOfTheBooBoo/web-gallery-app/backend/models"
@@ -128,4 +129,22 @@ func UserLogin(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{
 		"token": accessToken,
 	})
+}
+
+func UserLogout(c *gin.Context) {
+	db := c.MustGet("db").(*gorm.DB)
+	userClaim := c.MustGet("userClaims").(*utils.UserClaims)
+	tokenString := strings.ReplaceAll(c.GetHeader("Authorization"), "Bearer ", "")
+
+	token := models.Token{Token: tokenString, ExpirationDate: time.Unix(userClaim.ExpiresAt, 0)}
+
+	err := db.Create(&token).Error
+
+	if err != nil {
+		c.Status(http.StatusInternalServerError)
+		log.Println(err.Error())
+		return
+	}
+
+	c.Status(http.StatusCreated)
 }

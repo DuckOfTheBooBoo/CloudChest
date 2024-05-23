@@ -11,6 +11,7 @@ func UserRoutes(route *gin.RouterGroup) {
 	{
 		user.POST("/register", controllers.UserCreate)
 		user.POST("/login", controllers.UserLogin)
+		user.POST("/logout", middlewares.JWTMiddleware(), controllers.UserLogout)
 		user.PUT("/:userId", middlewares.JWTMiddleware(), func(ctx *gin.Context) {})
 		user.DELETE("/:userId", middlewares.JWTMiddleware(), func(ctx *gin.Context) {})
 	}
