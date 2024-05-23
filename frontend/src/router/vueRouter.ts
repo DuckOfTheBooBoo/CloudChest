@@ -4,7 +4,6 @@ import Dashboard from '../components/Dashboard.vue';
 import Files from '../components/explorer/Files.vue';
 import Favorite from '../components/explorer/Favorite.vue';
 import Trash from '../components/explorer/Trash.vue';
-import App from '../App.vue';
 import { createWebHistory, createRouter } from 'vue-router';
 import checkTokenValidation from '../utils/checkTokenValidation';
 
@@ -44,19 +43,21 @@ const router = createRouter({
  * else if token is valid and route is login or signup, redirect to explorer
  * else if token is valid and route is explorer, redirect to explorer
  */
-router.beforeEach(async (to, from) => {
+router.beforeEach(async (to, from, next) => {
   try {
     const isValid = await checkTokenValidation();
-    if (!isValid && ((to.name !== 'login') || (to.name !== 'signup'))) {
-      return {name: 'login'};
-    } else if(isValid && ((to.name === 'login') || (to.name === 'signup'))) {
-      return {name: 'explorer-files'}
+    
+    if (!isValid && to.name !== 'login' && to.name !== 'signup') {
+      next({ name: 'login' });
+    } else if (isValid && (to.name === 'login' || to.name === 'signup')) {
+      next({ name: 'explorer-files' });
+    } else {
+      next();
     }
-    return {name: to.name};
   } catch (error) {
-    console.error('Router Token Check Error: ', error);
+    console.error('Router Token Check Error:', error);
+    next(false);
   }
-  return false;
 });
 
 export default router;

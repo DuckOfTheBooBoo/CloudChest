@@ -1,7 +1,11 @@
 <script setup lang="ts">
-import { ref } from "vue";
+import axios from "axios";
+import { ref, mergeProps } from "vue";
+import { useRouter } from "vue-router";
 
 const selectedNav = ref(0);
+
+const router = useRouter();
 
 // import Item from "./Item.vue";
 const uploadFileDialog = ref<boolean>(false);
@@ -9,11 +13,40 @@ const upFileDialogActivator = ref(undefined);
 
 const newFolderDialog = ref<boolean>(false);
 const newFolderDialogActivator = ref(undefined);
+
+async function logout(): Promise<void> {
+  try {
+    const response = await axios.post('http://localhost:3000/api/users/logout');
+    
+    if (response.status == 201) {
+      localStorage.removeItem('token');
+      axios.defaults.headers.common['Authorization'] = '';
+
+      router.push('/login');
+    }
+  } catch (error) {
+    console.error(error);
+
+  }
+}
 </script>
 
 <template>
   <v-layout class="rounded rounded-md">
     <v-app-bar>
+      <v-menu>
+        <template v-slot:activator="{ props: menu }">
+          <v-tooltip location="top">
+            <template v-slot:activator="{ props: tooltip }">
+              <v-btn icon="mdi-account" v-bind="mergeProps(menu, tooltip)"></v-btn>
+            </template>
+            <span>Account menu</span>
+          </v-tooltip>
+        </template>
+        <v-list>
+          <v-list-item prepend-icon="mdi-logout-variant" @click="logout">Log out</v-list-item>
+        </v-list>
+      </v-menu>
       <v-app-bar-title>Halo Arajdian Altaf!</v-app-bar-title>
     </v-app-bar>
 
@@ -35,7 +68,7 @@ const newFolderDialogActivator = ref(undefined);
               <v-icon>mdi-folder-plus</v-icon> New folder
             </v-list-item>
             <v-list-item @click="() => {}">
-              <!-- WIP -->
+              <!-- TODO: WIP -->
               <v-icon>mdi-folder-upload</v-icon> Upload folder
             </v-list-item>
           </v-list>

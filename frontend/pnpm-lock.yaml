@@ -8,6 +8,9 @@ dependencies:
   axios:
     specifier: ^1.7.0
     version: 1.7.0
+  frontend:
+    specifier: 'link:'
+    version: 'link:'
   vee-validate:
     specifier: ^4.12.8
     version: 4.12.8(vue@3.4.27)
