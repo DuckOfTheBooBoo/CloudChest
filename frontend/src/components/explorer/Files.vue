@@ -1,8 +1,11 @@
 <script setup lang="ts">
-import {useRouter} from 'vue-router';
+import { useRouter, useRoute } from "vue-router";
+import { ref } from "vue";
+
+const fileDetailDialogActivator = ref(undefined);
 
 const router = useRouter();
-
+const route = useRoute();
 </script>
 
 <template>
@@ -28,7 +31,14 @@ const router = useRouter();
                 <v-list-item @click="console.log('Download')">
                   <v-icon>mdi-download</v-icon> Download
                 </v-list-item>
-                <v-list-item @click="console.log('Details')">
+                <v-list-item @click="()=>{}">
+                <!-- DETAILS DIALOG -->
+                  <v-dialog activator="parent" max-width="30rem">
+                    <template v-slot:default="{ isActive }">
+                      <v-card title="File detail"></v-card>
+                    </template>
+                  </v-dialog>
+
                   <v-icon>mdi-information-outline</v-icon> Details
                 </v-list-item>
                 <v-list-item @click="console.log('Mark as favorite')">

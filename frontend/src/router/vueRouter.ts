@@ -10,8 +10,8 @@ import checkTokenValidation from '../utils/checkTokenValidation';
 
 const routes = [
   { path: '/', redirect: '/login' },
-  { path: '/login', component: Login },
-  { path: '/signup', component: SignUp },
+  { path: '/login', component: Login, name: 'login' },
+  { path: '/signup', component: SignUp, name: 'signup' },
   { path: '/explorer', redirect: '/explorer/files' },
   { 
     path: '/explorer', 
@@ -19,7 +19,8 @@ const routes = [
     children: [
       {
         path: 'files',
-        component: Files
+        component: Files,
+        name: 'explorer-files'
       },
       {
         path: 'favorite',
@@ -38,17 +39,24 @@ const router = createRouter({
   routes,
 });
 
-// router.beforeEach(async (to, from, next) => {
-//   try {
-//     const isValid = await checkTokenValidation();
-//     if (!isValid) {
-//       return next('/login');
-//     }
-//   } catch (error) {
-//     console.error('Router Token Check Error: ', error);
-//   }
-//   next();
-//     next({name: 'login'})
-// });
+/**
+ * if token is not valid and route is not login nor signup, redirect to login
+ * else if token is valid and route is login or signup, redirect to explorer
+ * else if token is valid and route is explorer, redirect to explorer
+ */
+router.beforeEach(async (to, from) => {
+  try {
+    const isValid = await checkTokenValidation();
+    if (!isValid && ((to.name !== 'login') || (to.name !== 'signup'))) {
+      return {name: 'login'};
+    } else if(isValid && ((to.name === 'login') || (to.name === 'signup'))) {
+      return {name: 'explorer-files'}
+    }
+    return {name: to.name};
+  } catch (error) {
+    console.error('Router Token Check Error: ', error);
+  }
+  return false;
+});
 
 export default router;

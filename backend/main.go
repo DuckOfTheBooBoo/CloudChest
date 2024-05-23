@@ -26,12 +26,17 @@ func main() {
 	}
 
 	// Allow cors
-	r.Use(cors.Default())
+	corsConfig := cors.DefaultConfig()
+	corsConfig.AllowHeaders = []string{"*"}
+	corsConfig.AllowAllOrigins = true
+	corsMiddleware := cors.New(corsConfig)
+	r.Use(corsMiddleware)
 
 	// Define root endpoint
 	api := r.Group("/api")
 
 	api.Use(middlewares.DBMiddleware(db.GetDB()))
+	router.TokenRoutes(api)
 	router.UserRoutes(api)
 
 	r.Run(":3000")
