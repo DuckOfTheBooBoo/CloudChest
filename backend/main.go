@@ -9,6 +9,7 @@ import (
 	"github.com/DuckOfTheBooBoo/web-gallery-app/backend/utils"
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
+	cron "github.com/robfig/cron/v3"
 )
 
 func init() {
@@ -38,6 +39,20 @@ func main() {
 	api.Use(middlewares.DBMiddleware(db.GetDB()))
 	router.TokenRoutes(api)
 	router.UserRoutes(api)
+
+	// Schedule revoked tokens ('tokens' table in database) pruning
+	c := cron.New()
+	cronSpec := "*/15 * * * *" // Run every 15 minutes
+
+	_, err = c.AddFunc(cronSpec, func() {
+		utils.PruneRevokedTokens(db.GetDB())
+	})
+
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	c.Start()
 
 	r.Run(":3000")
 }
