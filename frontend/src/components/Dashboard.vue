@@ -27,6 +27,8 @@ async function logout(): Promise<void> {
   } catch (error) {
     console.error(error);
 
+    // Token might be invalid already
+    router.push('/login');
   }
 }
 </script>
