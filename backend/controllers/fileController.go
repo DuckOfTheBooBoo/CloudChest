@@ -39,14 +39,15 @@ func FileUpload(c *gin.Context) {
 		return
 	}
 
-	path := form.Value["path"][0]
-	if path == "" {
+	pathArray := form.Value["path"]
+	if len(pathArray) == 0 {
 		c.JSON(http.StatusBadRequest, gin.H{
 			"error": "Invalid path",
 		})
 		return
 	}
 
+	path := pathArray[0]
 	// Remove trailing slash
 	path = strings.TrimSuffix(path, "/")
 

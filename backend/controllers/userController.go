@@ -1,6 +1,7 @@
 package controllers
 
 import (
+	"context"
 	"log"
 	"net/http"
 	"strings"
@@ -11,11 +12,15 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/go-playground/validator/v10"
 	"github.com/golang-jwt/jwt"
+	"github.com/minio/minio-go/v7"
 	"gorm.io/gorm"
+	"github.com/gofrs/uuid/v5"
 )
 
 func UserCreate(c *gin.Context) {
+	ctx := context.Background()
 	db := c.MustGet("db").(*gorm.DB)
+	minioClient := c.MustGet("minio").(*minio.Client)
 	validate := validator.New()
 
 	var userBody struct {
@@ -49,7 +54,24 @@ func UserCreate(c *gin.Context) {
 		return
 	}
 
-	user := models.User{FirstName: userBody.FirstName, LastName: userBody.LastName, Email: userBody.Email, Password: hashedPassword}
+	// CREATE MINIO BUCKET
+	bucketName, err := uuid.NewV4()
+	if err != nil {
+		c.Status(http.StatusInternalServerError)
+		log.Println(err.Error())
+		return
+	}
+	err = minioClient.MakeBucket(ctx, bucketName.String(), minio.MakeBucketOptions{
+		Region: "us-east-1",
+	})
+
+	if err != nil {
+		c.Status(http.StatusInternalServerError)
+		log.Println(err.Error())
+		return
+	}
+
+	user := models.User{FirstName: userBody.FirstName, LastName: userBody.LastName, Email: userBody.Email, Password: hashedPassword, MinioBucket: bucketName.String()}
 
 	err = db.Create(&user).Error
 
