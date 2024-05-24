@@ -1,23 +1,23 @@
 name: web-gallery-app
 services:
-  # minio:
-  #   container_name: minio
-  #   image: "bitnami/minio:latest"
-  #   ports:
-  #       - "9000:9000"
-  #       - "9001:9001"
-  #   environment:
-  #       - MINIO_ROOT_USER=root
-  #       - MINIO_ROOT_PASSWORD=GoodTime221
-  #   volumes:
-  #       - minio_data:/data
+  minio:
+    container_name: minio
+    image: "bitnami/minio:latest"
+    ports:
+        - "9000:9000"
+        - "9001:9001"
+    environment:
+        MINIO_ROOT_USER: root
+        MINIO_ROOT_PASSWORD: password
+    volumes:
+        - minio_data:/data
 
   db:
     image: mariadb
     ports:
       - "3306:3306"
     environment:
-      MARIADB_ROOT_PASSWORD: GoodTime221
+      MARIADB_ROOT_PASSWORD: password
       MARIADB_DATABASE: web_gallery_db
     deploy:
       resources:

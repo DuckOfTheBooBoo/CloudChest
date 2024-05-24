@@ -26,6 +26,16 @@ func main() {
 		return
 	}
 
+	// Set a lower memory limit for multipart forms (default is 32 MiB)
+	r.MaxMultipartMemory = 8 << 20
+
+	minioClient, minioErr := database.ConnectToMinIO()
+
+	if minioErr != nil {
+		log.Fatal(minioErr)
+		return
+	}
+
 	// Allow cors
 	corsConfig := cors.DefaultConfig()
 	corsConfig.AllowHeaders = []string{"*"}
@@ -37,8 +47,10 @@ func main() {
 	api := r.Group("/api")
 
 	api.Use(middlewares.DBMiddleware(db.GetDB()))
+	api.Use(middlewares.MinIOMiddleware(minioClient.GetMinioClient()))
 	router.TokenRoutes(api)
 	router.UserRoutes(api)
+	router.FileRoutes(api)
 
 	// Schedule revoked tokens ('tokens' table in database) pruning
 	c := cron.New()
