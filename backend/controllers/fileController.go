@@ -160,3 +160,78 @@ func FileUpload(c *gin.Context) {
 		"files": newFiles,
 	})
 }
+
+func FileDelete(c *gin.Context) {
+	ctx := context.Background()
+	db := c.MustGet("db").(*gorm.DB)
+	minioClient := c.MustGet("minio").(*minio.Client)
+	userClaim := c.MustGet("userClaims").(*utils.UserClaims)
+	fileID := c.Param("fileID")
+
+	var user models.User
+	err := db.Where("id = ?", userClaim.ID).First(&user).Error
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{
+			"error": "User not found",
+		})
+		return
+	}
+
+	var file models.File
+
+	// Check if user wants to trash or permanently delete
+	isTrashDelete := c.DefaultQuery("trash", "true") == "true"
+	if !isTrashDelete {
+		err = db.Unscoped().Where("id = ? AND user_id = ?", fileID, userClaim.ID).First(&file).Error
+
+		if err != nil {
+			c.JSON(http.StatusNotFound, gin.H{
+				"error": "File not found",
+			})
+			return
+		}
+
+		// DELETE FROM MINIO
+		err = minioClient.RemoveObject(ctx, user.MinioBucket, file.StoragePath, minio.RemoveObjectOptions{})
+
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{
+				"error": "Failed to delete file",
+			})
+			log.Println(err.Error())
+			return
+		}
+
+		err = db.Delete(&file).Error
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{
+				"error": "Failed to delete file",
+			})
+			log.Println(err.Error())
+			return
+		}
+
+		c.Status(http.StatusOK)
+		return
+	}
+
+	err = db.Where("id = ? AND user_id = ?", fileID, userClaim.ID).First(&file).Error
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{
+			"error": "File not found",
+		})
+		return
+	}
+
+	err = db.Delete(&file).Error
+
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error": "Failed to delete file",
+		})
+		log.Println(err.Error())
+		return
+	}
+
+	c.Status(http.StatusOK)
+}
