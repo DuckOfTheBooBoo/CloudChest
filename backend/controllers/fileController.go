@@ -19,6 +19,9 @@ func FileUpload(c *gin.Context) {
 	db := c.MustGet("db").(*gorm.DB)
 	userClaim := c.MustGet("userClaims").(*utils.UserClaims)
 
+	// Check if upload is uploading multiple files
+	isMultipleUploads := c.DefaultQuery("multiple", "false") == "true"
+
 	// Read user from database
 	var user models.User
 	err := db.First(&user, "id = ?", userClaim.ID).Error
@@ -48,59 +51,112 @@ func FileUpload(c *gin.Context) {
 
 	path := pathArray[0]
 
-	file, err := c.FormFile("file")
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"error": "Failed to read file",
+	if !isMultipleUploads {
+		file, err := c.FormFile("file")
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{
+				"error": "Failed to read file",
+			})
+			return
+		}
+
+		fileName := filepath.Join(path, file.Filename)
+
+		// UPLOAD FILE RECORD TO RDBMS
+		// Create new File record in rbdms
+		newFile := models.File{
+			UserID:      userClaim.ID,
+			FileName:    file.Filename,
+			FileSize:    uint(file.Size),
+			FileType:    file.Header.Get("Content-Type"),
+			StoragePath: fileName,
+		}
+
+		err = db.Create(&newFile).Error
+
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{
+				"error": "Failed to create file",
+			})
+			log.Println(err.Error())
+			return
+		}
+
+		// UPLOAD FILE TO MINIO
+		// Read the file
+		uploadedFile, err := file.Open()
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{
+				"error": "Failed to open file",
+			})
+			log.Println(err.Error())
+			return
+		}
+		defer uploadedFile.Close()
+
+		_, err = minioClient.PutObject(ctx, user.MinioBucket, fileName, uploadedFile, file.Size, minio.PutObjectOptions{ContentType: file.Header.Get("Content-Type")})
+
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{
+				"error": "Failed to upload file",
+			})
+			log.Println(err.Error())
+			return
+		}
+
+		c.JSON(http.StatusCreated, gin.H{
+			"file": newFile,
 		})
 		return
 	}
 
-	fileName := filepath.Join(path, file.Filename)
+	files := form.File["files"]
+	var newFiles []models.File
+	for _, file := range files {
+		fileName := filepath.Join(path, file.Filename)
+		newFile := models.File{
+			UserID:      userClaim.ID,
+			FileName:    file.Filename,
+			FileSize:    uint(file.Size),
+			FileType:    file.Header.Get("Content-Type"),
+			StoragePath: fileName,
+		}
+		newFiles = append(newFiles, newFile)
 
-	// UPLOAD FILE RECORD TO RDBMS
-	// Create new File record in rbdms
-	newFile := models.File{
-		UserID: userClaim.ID,
-		FileName: file.Filename,
-		FileSize: uint(file.Size),
-		FileType: file.Header.Get("Content-Type"),
-		StoragePath: fileName,
+		// UPLOAD FILE TO MINIO
+		// Read the file
+		uploadedFile, err := file.Open()
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{
+				"error": "Failed to open file",
+			})
+			log.Println(err.Error())
+			return
+		}
+		defer uploadedFile.Close()
+
+		_, err = minioClient.PutObject(ctx, user.MinioBucket, fileName, uploadedFile, file.Size, minio.PutObjectOptions{ContentType: file.Header.Get("Content-Type")})
+
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{
+				"error": "Failed to upload file",
+			})
+			log.Println(err.Error())
+			return
+		}
 	}
 
-	err = db.Create(&newFile).Error
-
+	// Upload newFiles to rdbms
+	err = db.Create(&newFiles).Error
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
-			"error": "Failed to create file",
-		})
-		log.Println(err.Error())
-		return
-	}
-
-	// UPLOAD FILE TO MINIO
-	// Read the file
-	uploadedFile, err := file.Open()
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"error": "Failed to open file",
-		})
-		log.Println(err.Error())
-		return
-	}
-	defer uploadedFile.Close()
-
-	_, err = minioClient.PutObject(ctx, user.MinioBucket,  fileName, uploadedFile, file.Size, minio.PutObjectOptions{ContentType: file.Header.Get("Content-Type")})
-
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"error": "Failed to upload file",
+			"error": "Failed to create files",
 		})
 		log.Println(err.Error())
 		return
 	}
 
 	c.JSON(http.StatusCreated, gin.H{
-		"file": newFile,
+		"files": newFiles,
 	})
 }
