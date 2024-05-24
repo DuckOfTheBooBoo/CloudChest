@@ -2,10 +2,9 @@ package controllers
 
 import (
 	"context"
-	"fmt"
 	"log"
 	"net/http"
-	"strings"
+	"path/filepath"
 
 	"github.com/DuckOfTheBooBoo/web-gallery-app/backend/models"
 	"github.com/DuckOfTheBooBoo/web-gallery-app/backend/utils"
@@ -48,8 +47,6 @@ func FileUpload(c *gin.Context) {
 	}
 
 	path := pathArray[0]
-	// Remove trailing slash
-	path = strings.TrimSuffix(path, "/")
 
 	file, err := c.FormFile("file")
 	if err != nil {
@@ -59,7 +56,7 @@ func FileUpload(c *gin.Context) {
 		return
 	}
 
-	fileName := fmt.Sprintf("/%s/%s", path, file.Filename)
+	fileName := filepath.Join(path, file.Filename)
 
 	// UPLOAD FILE RECORD TO RDBMS
 	// Create new File record in rbdms
