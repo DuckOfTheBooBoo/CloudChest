@@ -9,6 +9,6 @@ import (
 func FileRoutes(route *gin.RouterGroup) {
 	file := route.Group("/files") 
 	{
-		file.POST("/upload", func (ctx *gin.Context) {})
+		file.POST("/upload", middlewares.JWTMiddleware(), controllers.FileUpload)
 	}
 }
