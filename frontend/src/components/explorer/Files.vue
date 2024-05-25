@@ -4,9 +4,9 @@ import { Ref, ref, onBeforeMount } from "vue";
 import { MinIOFile } from "../../models/file";
 import { getAllFiles } from "../../utils/filesApi";
 import { formatDistance } from "date-fns";
-import fileDetailFormatter from "../../utils/fileDetailFormatter";
+import { fileDetailFormatter } from "../../utils/fileDetailFormatter";
 
-const fileDetailDialogActivator = ref(undefined);
+const fileDetailDialog = ref(false);
 const files: Ref<MinIOFile[]> = ref([] as MinIOFile[]);
 
 const router = useRouter();
@@ -43,28 +43,23 @@ onBeforeMount(async () => {
                 </v-list-item>
                 <v-list-item @click="() => {}">
                   <!-- DETAILS DIALOG -->
-                  <v-dialog activator="parent" max-width="30rem">
+                  <v-dialog activator="parent" max-width="30rem" v-model="fileDetailDialog">
                     <template v-slot:default="{ isActive }">
-                      <v-card title="File detail">
+                      <v-card>
+                        <v-card-title>
+                          <div class="tw-flex tw-flex-row tw-justify-between tw-items-center tw-px-2">
+                            <p>File details</p>
+                            <v-btn icon="mdi-close" variant="flat" @click="fileDetailDialog = false"></v-btn>
+                          </div>
+                        </v-card-title>
                         <v-card-text>
-                          <table>
-                            <tr
-                              v-for="(value, index) in Object.entries(fileDetailFormatter(file))"
-                              :key="index">
-                              <th
-                                :class="{
-                                  'tw-bg-grey-lighten-3': index % 2 == 0,
-                                }">
-                                <span>{{ value[0] }}:</span>
-                              </th>
-                              <th
-                                :class="{
-                                  'tw-bg-grey-lighten-3 tw-text-base': index % 2 == 1,
-                                }">
-                                <span>{{ value[1] }}</span>
-                              </th>
-                            </tr>
-                          </table>
+                          <div v-for="(value, index) in Object.entries(fileDetailFormatter(file))" :key="index" class="tw-flex tw-flex-col">
+                            <div class="tw-flex tw-flex-row tw-justify-start">
+                              <p class="tw-w-1/2">{{ value[0] }}</p>
+                              <p class="tw-w-1/2">{{ value[1] }}</p>
+                            </div>
+                            <v-divider class="tw-my-2" v-if="index != Object.entries(fileDetailFormatter(file)).length - 1"></v-divider>
+                          </div>
                         </v-card-text>
                       </v-card>
                     </template>
