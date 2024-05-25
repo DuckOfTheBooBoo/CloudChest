@@ -10,6 +10,7 @@
   },
   "dependencies": {
     "axios": "^1.7.0",
+    "date-fns": "^3.6.0",
     "frontend": "link:",
     "vee-validate": "^4.12.8",
     "vue": "^3.4.21",
