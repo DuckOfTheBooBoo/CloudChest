@@ -15,6 +15,31 @@ import (
 	"gorm.io/gorm"
 )
 
+func FileList(c *gin.Context) {
+	db := c.MustGet("db").(*gorm.DB)
+	userClaim := c.MustGet("userClaims").(*utils.UserClaims)
+
+	var user models.User
+	err := db.First(&user, "id = ?", userClaim.ID).Error
+
+	if err != nil {
+		c.Status(http.StatusInternalServerError)
+		log.Println(err.Error())
+		return
+	}
+
+	var files []models.File
+	if err := db.Where("user_id = ?", user.ID).Find(&files).Error; err != nil {
+		c.Status(http.StatusInternalServerError)
+		log.Println(err.Error())
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"files": files,
+	})
+}
+
 func FileUpload(c *gin.Context) {
 	ctx := context.Background()
 	minioClient := c.MustGet("minio").(*minio.Client)
