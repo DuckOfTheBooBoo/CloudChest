@@ -202,7 +202,7 @@ func FileDelete(c *gin.Context) {
 			return
 		}
 
-		err = db.Delete(&file).Error
+		err = db.Unscoped().Delete(&file).Error
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{
 				"error": "Failed to delete file",
