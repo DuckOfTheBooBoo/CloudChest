@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { useRouter, useRoute } from "vue-router";
-import { Ref, ref, onBeforeMount } from "vue";
+import { Ref, ref, onBeforeMount, onMounted } from "vue";
 import { MinIOFile } from "../../models/file";
 import { getAllFiles } from "../../utils/filesApi";
 import { formatDistance } from "date-fns";
@@ -24,10 +24,8 @@ onBeforeMount(async () => {
       <v-col v-for="file in files" :key="file.ID" :cols="2">
         <v-card max-width="10rem" class="pa-2 rounded-lg" hover @click="">
           <!-- Upper part (file name and menu) -->
-          <div
-            class="tw-flex tw-flex-row tw-h-full tw-mb-3 tw-w-full tw-items-center tw-flex-wrap"
-          >
-            <p class="text-body-2 tw-grow">{{ file.FileName }}</p>
+          <div class="tw-flex tw-flex-row tw-h-full tw-mb-3 tw-w-full tw-items-center tw-justify-between">
+            <p ref="fileNameEl" class="text-body-2 tw-overflow-hidden text-fade-out tw-h-[1rem]">{{ file.FileName }}</p>
             <v-menu>
               <template v-slot:activator="{ props }">
                 <v-btn
