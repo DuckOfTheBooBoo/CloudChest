@@ -1,7 +1,9 @@
 package controllers
 
 import (
+	"bytes"
 	"context"
+	"io"
 	"log"
 	"net/http"
 	"path/filepath"
@@ -234,4 +236,51 @@ func FileDelete(c *gin.Context) {
 	}
 
 	c.Status(http.StatusOK)
+}
+
+func FileNewPath(c *gin.Context) {
+	ctx := context.Background()
+	db := c.MustGet("db").(*gorm.DB)
+	minioClient := c.MustGet("minio").(*minio.Client)
+	userClaim := c.MustGet("userClaims").(*utils.UserClaims)
+	path := c.DefaultQuery("path", "/")
+
+	var user models.User
+	err := db.Where("id = ?", userClaim.ID).First(&user).Error
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{
+			"error": "User not found",
+		})
+		return
+	}
+
+	// To create a new path, we could make empty file and upload it to the desired path, then delete it
+	emptyFile := []byte{}
+	emptyFileName := ".newPath"
+
+	reader := bytes.NewReader(emptyFile)
+
+	if _, err := io.Copy(io.Discard, reader); err != nil {
+		c.Status(http.StatusInternalServerError)
+		log.Println(err.Error())
+		return
+	}
+
+	// file path
+	emptyFilePath := filepath.Join(path, emptyFileName)
+
+	// Upload empty file
+	_, err = minioClient.PutObject(ctx, user.MinioBucket, emptyFilePath, reader, 0, minio.PutObjectOptions{ContentType: "text/plain"})
+
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error": "Failed to upload file",
+		})
+		log.Println(err.Error())
+		return
+	}
+
+	c.JSON(http.StatusCreated, gin.H{
+		"path": path,
+	})
 }
