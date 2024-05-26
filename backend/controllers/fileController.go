@@ -10,6 +10,7 @@ import (
 
 	"github.com/DuckOfTheBooBoo/web-gallery-app/backend/models"
 	"github.com/DuckOfTheBooBoo/web-gallery-app/backend/utils"
+	"github.com/deckarep/golang-set/v2"
 	"github.com/gin-gonic/gin"
 	"github.com/minio/minio-go/v7"
 	"gorm.io/gorm"
@@ -18,7 +19,12 @@ import (
 func FileList(c *gin.Context) {
 	db := c.MustGet("db").(*gorm.DB)
 	userClaim := c.MustGet("userClaims").(*utils.UserClaims)
+	path := c.Param("path")
 
+	if path == "root" {
+		path = "/"
+	}
+	
 	var user models.User
 	err := db.First(&user, "id = ?", userClaim.ID).Error
 
@@ -35,8 +41,19 @@ func FileList(c *gin.Context) {
 		return
 	}
 
+	folders := mapset.NewSet[string]()
+	// Filter slice to match path provided by request body
+	files = utils.FilterSlice(files, func(file models.File) bool {
+		if filepath.Dir(file.StoragePath) == path {
+			return true
+		}
+		folders.Add(filepath.Dir(file.StoragePath))
+		return false
+	})
+
 	c.JSON(http.StatusOK, gin.H{
 		"files": files,
+		"folders": folders,
 	})
 }
 
