@@ -5,6 +5,7 @@ import { MinIOFile } from "../../models/file";
 import { getAllFiles } from "../../utils/filesApi";
 import { formatDistance } from "date-fns";
 import { fileDetailFormatter } from "../../utils/fileDetailFormatter";
+import Filename from "../Filename.vue";
 
 const fileDetailDialog = ref(false);
 const files: Ref<MinIOFile[]> = ref([] as MinIOFile[]);
@@ -21,11 +22,11 @@ onBeforeMount(async () => {
 <template>
   <v-container>
     <v-row>
-      <v-col v-for="file in files" :key="file.ID" :cols="2">
+      <v-col v-for="file in files" :key="file.ID" :cols="2" ref="itemRefs">
         <v-card max-width="10rem" class="pa-2 rounded-lg" hover @click="">
           <!-- Upper part (file name and menu) -->
           <div class="tw-flex tw-flex-row tw-h-full tw-mb-3 tw-w-full tw-items-center tw-justify-between">
-            <p ref="fileNameEl" class="text-body-2 tw-overflow-hidden text-fade-out tw-h-[1rem]">{{ file.FileName }}</p>
+            <Filename :filename="file.FileName" />
             <v-menu>
               <template v-slot:activator="{ props }">
                 <v-btn
