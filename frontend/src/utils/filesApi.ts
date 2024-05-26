@@ -2,21 +2,31 @@ import axios from "axios";
 import { MinIOFile, FileResponse } from "../models/file";
 
 interface FilesResponse {
-  files: FileResponse[];
+  files: FileResponse[] | null;
+  folders: string[] | null;
 }
 
-export async function getAllFiles(): Promise<MinIOFile[]> {
+interface ReturnValue {
+  files: MinIOFile[];
+  folders: string[];
+}
+
+export async function getFilesFromPath(path: string): Promise<ReturnValue> {
   try {
-    const response = await axios.get("http://localhost:3000/api/files");
+    const response = await axios.get("http://localhost:3000/api/files/"+path);
     if (response.data.hasOwnProperty("files")) {
       const filesResponse: FilesResponse = response.data as FilesResponse;
-      const files: MinIOFile[] = filesResponse.files.map(
+      const files: MinIOFile[] = filesResponse.files?.map(
         (fileResponse) => new MinIOFile(fileResponse)
-      );
-      return files;
+      )!;
+      const folders = filesResponse.folders
+      return {
+        files,
+        folders
+      } as ReturnValue;
     }
   } catch (error: any) {
     console.error(error);
   }
-  return [] as MinIOFile[];
+  return { files: [], folders: [] } as ReturnValue;
 }
