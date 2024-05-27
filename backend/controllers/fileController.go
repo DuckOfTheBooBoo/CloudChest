@@ -41,13 +41,17 @@ func FileList(c *gin.Context) {
 		return
 	}
 
-	folders := mapset.NewSet[string]()
+	folders := mapset.NewSet[models.Folder]()
 	// Filter slice to match path provided by request body
 	files = utils.FilterSlice(files, func(file models.File) bool {
 		if filepath.Dir(file.StoragePath) == path {
 			return true
 		}
-		folders.Add(filepath.Dir(file.StoragePath))
+		folders.Add(models.Folder{
+			DirName: filepath.Dir(file.StoragePath),
+			CreatedAt: file.CreatedAt,
+			UpdatedAt: file.UpdatedAt,
+		})
 		return false
 	})
 
