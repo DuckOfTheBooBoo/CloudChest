@@ -1,14 +1,15 @@
 import axios from "axios";
 import { MinIOFile, FileResponse } from "../models/file";
+import Folder from "../models/folder";
 
 interface FilesResponse {
   files: FileResponse[] | null;
-  folders: string[] | null;
+  folders: Folder[] | null;
 }
 
 interface ReturnValue {
   files: MinIOFile[];
-  folders: string[];
+  folders: Folder[];
 }
 
 export async function getFilesFromPath(path: string): Promise<ReturnValue> {
@@ -19,7 +20,7 @@ export async function getFilesFromPath(path: string): Promise<ReturnValue> {
       const files: MinIOFile[] = filesResponse.files?.map(
         (fileResponse) => new MinIOFile(fileResponse)
       )!;
-      const folders = filesResponse.folders
+      const folders = filesResponse.folders as Folder[] | null;
       return {
         files,
         folders

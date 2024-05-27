@@ -1,13 +1,18 @@
 <script setup lang="ts">
-import { ref } from "vue";
+import { ref, onBeforeMount } from "vue";
 import { formatDistance } from "date-fns";
 import { fileDetailFormatter } from "../utils/fileDetailFormatter";
+import Folder from "../models/folder";
 import Filename from "./Filename.vue";
 
 const props = defineProps<{
-    folderName: string,
-    path: string,
+    folder: Folder
 }>();
+
+onBeforeMount(() => {
+  console.log(props);
+})
+
 const fileDetailDialog = ref(false);
 </script>
 
@@ -15,7 +20,7 @@ const fileDetailDialog = ref(false);
   <v-card max-width="10rem" class="pa-2 rounded-lg" hover @click="">
     <!-- Upper part (file name and menu) -->
     <div class="tw-flex tw-flex-row tw-h-full tw-mb-3 tw-w-full tw-items-center tw-justify-between">
-      <Filename :filename="props.folderName" />
+      <Filename :filename="folder.DirName" />
       <v-menu>
         <template v-slot:activator="{ props: menuProps }">
           <v-btn
@@ -92,6 +97,11 @@ const fileDetailDialog = ref(false);
     >
       <v-icon icon="mdi-trash-can"></v-icon>
     </div>
+
+    <!-- Bottom part (date) -->
+    <p class="text-caption">
+      {{ formatDistance(folder.CreatedAt, new Date(), { addSuffix: true }) }}
+    </p>
   </v-card>
 </template>
 
