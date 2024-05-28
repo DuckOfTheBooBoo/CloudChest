@@ -8,5 +8,6 @@ type File struct {
 	FileName    string `gorm:"type:varchar(255);not null"`
 	FileSize    uint   `gorm:"not null"`
 	FileType    string `gorm:"type:varchar(100);not null"`
+	DirPath     string `gorm:"type:text;not null"`
 	StoragePath string `gorm:"type:varchar(100);not null"`
 }

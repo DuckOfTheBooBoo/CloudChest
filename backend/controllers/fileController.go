@@ -7,6 +7,7 @@ import (
 	"log"
 	"net/http"
 	"path/filepath"
+	// "strings"
 
 	"github.com/DuckOfTheBooBoo/web-gallery-app/backend/models"
 	"github.com/DuckOfTheBooBoo/web-gallery-app/backend/utils"
@@ -19,10 +20,13 @@ import (
 func FileList(c *gin.Context) {
 	db := c.MustGet("db").(*gorm.DB)
 	userClaim := c.MustGet("userClaims").(*utils.UserClaims)
-	path := c.Param("path")
+	path := c.Query("path")
 
-	if path == "root" {
-		path = "/"
+	if path == "" {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": "No path provided",
+		})
+		return
 	}
 	
 	var user models.User
@@ -35,7 +39,7 @@ func FileList(c *gin.Context) {
 	}
 
 	var files []models.File
-	if err := db.Where("user_id = ?", user.ID).Find(&files).Error; err != nil {
+	if err := db.Where("user_id = ? AND dir_path = ?", user.ID, path).Find(&files).Error; err != nil {
 		c.Status(http.StatusInternalServerError)
 		log.Println(err.Error())
 		return
@@ -110,6 +114,16 @@ func FileUpload(c *gin.Context) {
 
 		fileName := filepath.Join(path, file.Filename)
 
+		if filepath.Dir(fileName) != "" || filepath.Dir(fileName) != "/" {
+			// Create a parent dir -> child dir mapping
+			log.Println("CREATING PARENT CHILD MAP")
+			parentChildDir := utils.GenerateParentChildDir(userClaim.ID, filepath.Dir(fileName))
+
+			for _, parentChild := range parentChildDir {
+				db.Create(&parentChild)
+			}
+		}
+
 		// UPLOAD FILE RECORD TO RDBMS
 		// Create new File record in rbdms
 		newFile := models.File{
@@ -117,6 +131,7 @@ func FileUpload(c *gin.Context) {
 			FileName:    file.Filename,
 			FileSize:    uint(file.Size),
 			FileType:    file.Header.Get("Content-Type"),
+			DirPath:     filepath.Dir(fileName),
 			StoragePath: fileName,
 		}
 
@@ -160,6 +175,8 @@ func FileUpload(c *gin.Context) {
 
 	files := form.File["files"]
 	var newFiles []models.File
+	baseFilePath := filepath.Dir(newFiles[0].StoragePath)
+
 	for _, file := range files {
 		fileName := filepath.Join(path, file.Filename)
 		newFile := models.File{
@@ -167,6 +184,7 @@ func FileUpload(c *gin.Context) {
 			FileName:    file.Filename,
 			FileSize:    uint(file.Size),
 			FileType:    file.Header.Get("Content-Type"),
+			DirPath:     filepath.Dir(fileName),
 			StoragePath: fileName,
 		}
 		newFiles = append(newFiles, newFile)
@@ -194,6 +212,15 @@ func FileUpload(c *gin.Context) {
 		}
 	}
 
+	if baseFilePath != "" || baseFilePath != "/" {
+		// Create a parent dir -> child dir mapping
+		log.Println("CREATING PARENT CHILD MAP")
+		parentChildDir := utils.GenerateParentChildDir(userClaim.ID, baseFilePath)
+
+		for _, parentChild := range parentChildDir {
+			db.Create(&parentChild)
+		}
+	}
 	// Upload newFiles to rdbms
 	err = db.Create(&newFiles).Error
 	if err != nil {
