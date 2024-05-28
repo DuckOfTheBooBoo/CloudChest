@@ -11,7 +11,6 @@ import (
 
 	"github.com/DuckOfTheBooBoo/web-gallery-app/backend/models"
 	"github.com/DuckOfTheBooBoo/web-gallery-app/backend/utils"
-	"github.com/deckarep/golang-set/v2"
 	"github.com/gin-gonic/gin"
 	"github.com/minio/minio-go/v7"
 	"gorm.io/gorm"
@@ -28,7 +27,7 @@ func FileList(c *gin.Context) {
 		})
 		return
 	}
-	
+
 	var user models.User
 	err := db.First(&user, "id = ?", userClaim.ID).Error
 
@@ -45,22 +44,34 @@ func FileList(c *gin.Context) {
 		return
 	}
 
-	folders := mapset.NewSet[models.Folder]()
+	var folderChildren []models.FolderChild
+	// Generate parent and child folders
+	if err := db.Where("user_id = ? AND parent = ?", user.ID, path).Find(&folderChildren).Error; err != nil {
+		c.Status(http.StatusInternalServerError)
+		log.Println(err.Error())
+		return
+	}
+
+	var folders []models.Folder
+	for _, folderChild := range folderChildren {
+		if folderChild.Child != "" {
+			folder := models.Folder{
+				DirName:   folderChild.Child,
+				CreatedAt: folderChild.CreatedAt,
+				UpdatedAt: folderChild.UpdatedAt,
+			}
+
+			folders = append(folders, folder)
+		}
+	}
+
 	// Filter slice to match path provided by request body
 	files = utils.FilterSlice(files, func(file models.File) bool {
-		if filepath.Dir(file.StoragePath) == path {
-			return true
-		}
-		folders.Add(models.Folder{
-			DirName: filepath.Dir(file.StoragePath),
-			CreatedAt: file.CreatedAt,
-			UpdatedAt: file.UpdatedAt,
-		})
-		return false
+		return filepath.Dir(file.StoragePath) == path
 	})
 
 	c.JSON(http.StatusOK, gin.H{
-		"files": files,
+		"files":   files,
 		"folders": folders,
 	})
 }
