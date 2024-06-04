@@ -19,7 +19,7 @@ const routes = [
       {
         path: 'files',
         component: Files,
-        name: 'explorer-files'
+        name: 'explorer-files',
       },
       {
         path: 'favorite',
