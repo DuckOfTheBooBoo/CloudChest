@@ -9,7 +9,7 @@ const overflowing = ref(false);
 
 function checkOverflow() {
   if (pTag.value) {
-    console.log(pTag.value);
+    // console.log(pTag.value);
     if (pTag.value.scrollWidth > pTag.value.clientWidth) {
       overflowing.value = true;
       pClass.value += " text-fade-out";

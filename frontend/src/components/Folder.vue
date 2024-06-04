@@ -1,26 +1,39 @@
 <script setup lang="ts">
-import { ref, onBeforeMount } from "vue";
+import { ref, computed } from "vue";
 import { formatDistance } from "date-fns";
 import { fileDetailFormatter } from "../utils/fileDetailFormatter";
 import Folder from "../models/folder";
 import Filename from "./Filename.vue";
 
 const props = defineProps<{
-    folder: Folder
+  folder: Folder;
+  parentPath: string;
+  makeRequest: Function;
 }>();
 
-onBeforeMount(() => {
-  console.log(props);
-})
+const fullPath = computed(() => {
+  const decodedPath = decodeURIComponent(props.parentPath);
+  if (decodedPath !== '/') {
+    return `${decodedPath}/${props.folder.DirName}`;
+  }
+  return decodedPath;
+});
+const folderName = computed(() => props.folder.DirName);
 
 const fileDetailDialog = ref(false);
+
+function doRequest() {
+  props.makeRequest(fullPath.value);
+}
 </script>
 
 <template>
-  <v-card max-width="10rem" class="pa-2 rounded-lg" hover @click="">
+  <v-card max-width="10rem" class="pa-2 rounded-lg" hover @click="doRequest">
     <!-- Upper part (file name and menu) -->
-    <div class="tw-flex tw-flex-row tw-h-full tw-mb-3 tw-w-full tw-items-center tw-justify-between">
-      <Filename :filename="folder.DirName" />
+    <div
+      class="tw-flex tw-flex-row tw-h-full tw-mb-3 tw-w-full tw-items-center tw-justify-between"
+    >
+      <Filename :filename="folderName" />
       <v-menu>
         <template v-slot:activator="{ props: menuProps }">
           <v-btn

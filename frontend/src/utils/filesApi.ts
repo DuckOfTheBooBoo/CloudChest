@@ -13,8 +13,13 @@ interface ReturnValue {
 }
 
 export async function getFilesFromPath(path: string): Promise<ReturnValue> {
+  path = path.replace('//', '/')
   try {
-    const response = await axios.get("http://localhost:3000/api/files/"+path);
+    const response = await axios.get("http://localhost:3000/api/files", {
+      params: {
+        path: path
+      }
+    });
     if (response.data.hasOwnProperty("files")) {
       const filesResponse: FilesResponse = response.data as FilesResponse;
       const files: MinIOFile[] = filesResponse.files?.map(
