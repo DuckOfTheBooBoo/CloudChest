@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { useRoute } from "vue-router";
+import { useRoute, useRouter } from "vue-router";
 import { watch, Ref, ref, onBeforeMount, onBeforeUnmount, onMounted } from "vue";
 import { MinIOFile } from "../../models/file";
 import { getFilesFromPath } from "../../utils/filesApi";
@@ -11,14 +11,8 @@ const fileList: Ref<MinIOFile[]> = ref([] as MinIOFile[]);
 const folderList: Ref<FolderModel[]> = ref([] as FolderModel[]);
 
 const route = useRoute();
+const router = useRouter();
 const path = ref('/');
-
-watch(() => route.params.path, (newPath, oldPath) => {
-  if (newPath !== undefined) {
-    path.value += `/${newPath}`;
-  }
-}, { immediate: true }); // Capture initial path on component mount
-
 
 window.addEventListener('popstate', () => {
   console.log(path.value, route.path)
@@ -33,16 +27,8 @@ onBeforeUnmount(() => {
   window.removeEventListener('popstate', () => {});
 });
 
-watch(path, async () => {
-  path.value = path.value.replace('//', '/')
-  console.log(path.value)
-  const response = await getFilesFromPath(path.value);
-  fileList.value = response.files;
-  folderList.value = response.folders;
-})
-
 onBeforeMount(async () => {
-  path.value = (route.params.path as string).replace('root', '/');
+  path.value = decodeURIComponent(route.query.path as string);
   const response = await getFilesFromPath(path.value);
   fileList.value = response.files;
   folderList.value = response.folders;
@@ -51,13 +37,21 @@ onBeforeMount(async () => {
 onMounted(() => {
   console.log(route.fullPath)
 })
+
+async function makeRequest(pathParam: string): Promise<void> {
+  path.value = pathParam
+  const response = await getFilesFromPath(path.value);
+  fileList.value = response.files;
+  folderList.value = response.folders;
+  router.push({ path: '/explorer/files', query: { path: encodeURIComponent(path.value) }})
+}
 </script>
 
 <template>
   <v-container>
     <v-row>
       <v-col v-for="folder in folderList" :key="folder" :cols="2">
-        <Folder :folder="folder" :parent-path="route.fullPath"/>
+        <Folder :folder="folder" :parent-path="decodeURIComponent(path)" :make-request="makeRequest"/>
       </v-col>
       <v-col v-for="file in fileList" :key="file" :cols="2">
         <File :file="file" />
