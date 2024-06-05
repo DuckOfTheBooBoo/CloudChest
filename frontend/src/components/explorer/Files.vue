@@ -58,7 +58,9 @@ async function fetchFiles(pathParam: string): Promise<void> {
 </script>
 
 <template>
-  <v-progress-linear v-if="isLoading" :indeterminate="true" color="primary"></v-progress-linear>
+  <div class="tw-min-h-1">
+    <v-progress-linear v-if="isLoading" :indeterminate="true" color="primary"></v-progress-linear>
+  </div>
   <v-container>
     <v-row>
       <v-col v-for="folder in folderList" :key="folder" :cols="2">
