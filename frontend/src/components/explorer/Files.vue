@@ -14,14 +14,11 @@ const route = useRoute();
 const router = useRouter();
 const path = ref('/');
 
-window.addEventListener('popstate', () => {
-  console.log(path.value, route.path)
-  if(path.value) {
-    path.value = route.path; // Update path based on current route
-  } else {
-    path.value = '/';
-  }
-});
+// Handle back and forward navigation by watching route changes
+watch(route, (newRoute, oldRoute) => {
+  const newDecodedPath = decodeURIComponent(newRoute.query.path as string);
+  fetchFiles(newDecodedPath);
+})
 
 onBeforeUnmount(() => {
   window.removeEventListener('popstate', () => {});
@@ -29,9 +26,7 @@ onBeforeUnmount(() => {
 
 onBeforeMount(async () => {
   path.value = decodeURIComponent(route.query.path as string);
-  const response = await getFilesFromPath(path.value);
-  fileList.value = response.files;
-  folderList.value = response.folders;
+  await fetchFiles(path.value);
 });
 
 onMounted(() => {
@@ -40,10 +35,14 @@ onMounted(() => {
 
 async function makeRequest(pathParam: string): Promise<void> {
   path.value = pathParam
-  const response = await getFilesFromPath(path.value);
+  await fetchFiles(path.value)
+  router.push({ path: '/explorer/files', query: { path: encodeURIComponent(path.value) }})
+}
+
+async function fetchFiles(pathParam: string): Promise<void> {
+  const response = await getFilesFromPath(pathParam);
   fileList.value = response.files;
   folderList.value = response.folders;
-  router.push({ path: '/explorer/files', query: { path: encodeURIComponent(path.value) }})
 }
 </script>
 
