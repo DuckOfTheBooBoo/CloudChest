@@ -6,17 +6,24 @@ import { getFilesFromPath } from "../../utils/filesApi";
 import File from "../File.vue";
 import Folder from "../Folder.vue";
 import FolderModel from "../../models/folder";
+import { useEventEmitterStore } from "../../stores/eventEmitterStore";
+import { FILE_UPDATED } from "../../constants";
 
 const fileList: Ref<MinIOFile[]> = ref([] as MinIOFile[]);
 const folderList: Ref<FolderModel[]> = ref([] as FolderModel[]);
 
+const eventEmitter = useEventEmitterStore();
 const route = useRoute();
 const router = useRouter();
 const path = ref('/');
 const isLoading = ref<boolean>(false);
 
+eventEmitter.eventEmitter.on(FILE_UPDATED, () => {
+  fetchFiles(path.value)
+})
+
 // Handle back and forward navigation by watching route changes
-watch(route, (newRoute, oldRoute) => {
+watch(route, (newRoute, _) => {
   const newDecodedPath = decodeURIComponent(newRoute.query.path as string);
   fetchFiles(newDecodedPath);
 })

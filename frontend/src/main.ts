@@ -1,9 +1,11 @@
 import { createApp } from 'vue'
 import './index.css'
-import App from './App.vue'
+import App from "./App.vue"
 import router from './router/vueRouter'
 import axios from 'axios'
 
+// Pinia
+import { createPinia } from 'pinia'
 
 // Vuetify
 import '@mdi/font/css/materialdesignicons.css'
@@ -15,6 +17,7 @@ import * as directives from 'vuetify/directives'
 
 axios.defaults.headers.common['Authorization'] = 'Bearer ' + localStorage.getItem('token');
 
+const pinia = createPinia()
 
 const vuetify = createVuetify({
     components,
@@ -34,4 +37,5 @@ const vuetify = createVuetify({
 createApp(App)
     .use(router)
     .use(vuetify)
+    .use(pinia)
     .mount('#app')

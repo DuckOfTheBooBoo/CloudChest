@@ -1,13 +1,17 @@
 <script setup lang="ts">
 import axios from "axios";
 import { ref, mergeProps } from "vue";
-import { useRouter } from "vue-router";
+import { useRouter, useRoute } from "vue-router";
+import { useEventEmitterStore } from "../stores/eventEmitterStore"
+import { FILE_UPDATED } from "../constants"
 
 const selectedNav = ref(0);
-
 const router = useRouter();
+const route = useRoute();
+const file = ref<File | null>(null);
 
-// import Item from "./Item.vue";
+const eventEmitter = useEventEmitterStore();
+
 const uploadFileDialog = ref<boolean>(false);
 const upFileDialogActivator = ref(undefined);
 
@@ -16,19 +20,34 @@ const newFolderDialogActivator = ref(undefined);
 
 async function logout(): Promise<void> {
   try {
-    const response = await axios.post('http://localhost:3000/api/users/logout');
-    
-    if (response.status == 201) {
-      localStorage.removeItem('token');
-      axios.defaults.headers.common['Authorization'] = '';
+    const response = await axios.post("http://localhost:3000/api/users/logout");
 
-      router.push('/login');
+    if (response.status == 201) {
+      localStorage.removeItem("token");
+      axios.defaults.headers.common["Authorization"] = "";
+
+      router.push("/login");
     }
   } catch (error) {
     console.error(error);
 
     // Token might be invalid already
-    router.push('/login');
+    router.push("/login");
+  }
+}
+
+async function uploadFile(_: Event): Promise<void> {
+  try {
+    await axios.postForm('http://localhost:3000/api/files?multiple=false', {
+      file: file.value as File,
+      path: decodeURIComponent(route.query.path as string)
+    });
+    eventEmitter.eventEmitter.emit(FILE_UPDATED);
+  } catch (error) {
+    console.error(error);
+  } finally {
+    uploadFileDialog.value = false; // end
+    file.value = null;
   }
 }
 </script>
@@ -40,13 +59,18 @@ async function logout(): Promise<void> {
         <template v-slot:activator="{ props: menu }">
           <v-tooltip location="top">
             <template v-slot:activator="{ props: tooltip }">
-              <v-btn icon="mdi-account" v-bind="mergeProps(menu, tooltip)"></v-btn>
+              <v-btn
+                icon="mdi-account"
+                v-bind="mergeProps(menu, tooltip)"
+              ></v-btn>
             </template>
             <span>Account menu</span>
           </v-tooltip>
         </template>
         <v-list>
-          <v-list-item prepend-icon="mdi-logout-variant" @click="logout">Log out</v-list-item>
+          <v-list-item prepend-icon="mdi-logout-variant" @click="logout"
+            >Log out</v-list-item
+          >
         </v-list>
       </v-menu>
       <v-app-bar-title>Halo Arajdian Altaf!</v-app-bar-title>
@@ -100,27 +124,26 @@ async function logout(): Promise<void> {
       max-width="30rem"
       persistent
     >
-      <template v-slot:default="{ isActive }">
-        <v-card title="Upload file">
-          <v-card-text>
-            <v-file-input
-              variant="outlined"
-              accept="*"
-              label="File input"
-              counter
-              show-size
-            ></v-file-input>
-          </v-card-text>
-          <v-card-actions>
-            <v-btn @click="uploadFileDialog = false">Cancel</v-btn>
-            <v-btn
-              variant="tonal"
-              color="blue"
-              @click="uploadFileDialog = false"
-              >Upload</v-btn
-            >
-          </v-card-actions>
-        </v-card>
+      <template v-slot:default="{ isActive:_ }">
+        <form @submit.prevent="uploadFile">
+          <v-card title="Upload file">
+            <v-card-text>
+              <v-file-input
+                variant="outlined"
+                accept="*"
+                label="File input"
+                v-model="file"
+                counter
+                show-size
+                name="file"
+              ></v-file-input>
+            </v-card-text>
+            <v-card-actions>
+              <v-btn @click="uploadFileDialog = false">Cancel</v-btn>
+              <v-btn variant="tonal" color="blue" type="submit">Upload</v-btn>
+            </v-card-actions>
+          </v-card>
+        </form>
       </template>
     </v-dialog>
 
@@ -131,7 +154,7 @@ async function logout(): Promise<void> {
       max-width="30rem"
       persistent
     >
-      <template v-slot:default="{ isActive }">
+      <template v-slot:default="{ isActive:_ }">
         <v-card title="Create new folder">
           <v-card-text>
             <v-text-field label="Folder name" variant="outlined"></v-text-field>
