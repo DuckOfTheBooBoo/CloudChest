@@ -11,13 +11,8 @@ const props = defineProps<{
   makeRequest: Function;
 }>();
 
-const fullPath = computed(() => {
-  const decodedPath = decodeURIComponent(props.parentPath);
-  if (decodedPath !== '/') {
-    return `${decodedPath}/${props.folder.DirName}`;
-  }
-  return decodedPath;
-});
+const decodedParentPath = computed(() => decodeURIComponent(props.parentPath))
+const fullPath = computed(() => decodedParentPath.value === '/' ? `/${props.folder.DirName}` : `${decodedParentPath.value}/${props.folder.DirName}`);
 const folderName = computed(() => props.folder.DirName);
 
 const fileDetailDialog = ref(false);
