@@ -13,6 +13,7 @@ const folderList: Ref<FolderModel[]> = ref([] as FolderModel[]);
 const route = useRoute();
 const router = useRouter();
 const path = ref('/');
+const isLoading = ref<boolean>(false);
 
 // Handle back and forward navigation by watching route changes
 watch(route, (newRoute, oldRoute) => {
@@ -40,13 +41,16 @@ async function makeRequest(pathParam: string): Promise<void> {
 }
 
 async function fetchFiles(pathParam: string): Promise<void> {
+  isLoading.value = true;
   const response = await getFilesFromPath(pathParam);
   fileList.value = response.files;
   folderList.value = response.folders;
+  isLoading.value = false;
 }
 </script>
 
 <template>
+  <v-progress-linear v-if="isLoading" :indeterminate="true" color="primary"></v-progress-linear>
   <v-container>
     <v-row>
       <v-col v-for="folder in folderList" :key="folder" :cols="2">
