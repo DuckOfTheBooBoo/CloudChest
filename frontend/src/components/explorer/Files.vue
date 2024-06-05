@@ -25,6 +25,7 @@ eventEmitter.eventEmitter.on(FILE_UPDATED, () => {
 // Handle back and forward navigation by watching route changes
 watch(route, (newRoute, _) => {
   const newDecodedPath = decodeURIComponent(newRoute.query.path as string);
+  path.value = newDecodedPath
   fetchFiles(newDecodedPath);
 })
 
