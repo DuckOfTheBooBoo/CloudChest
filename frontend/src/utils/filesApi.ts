@@ -19,7 +19,8 @@ export async function getFilesFromPath(path: string): Promise<ReturnValue> {
   try {
     const response = await axios.get("http://localhost:3000/api/files", {
       params: {
-        path: path
+        path: path,
+        trashCan: false
       }
     });
     if (response.data.hasOwnProperty("files")) {
@@ -37,6 +38,21 @@ export async function getFilesFromPath(path: string): Promise<ReturnValue> {
     console.error(error);
   }
   return { files: [], folders: [] } as ReturnValue;
+}
+
+export async function getTrashCan(): Promise<{files: MinIOFile[]}> {
+  try {
+    const response = await axios.get("http://localhost:3000/api/files", {
+      params: {
+        trashCan: true,
+        path: 'a'
+      }
+    });
+    return { files: response.data.files as MinIOFile[] };
+  } catch (error) {
+    console.error(error);
+  }
+  return { files: [] };
 }
 
 export async function trashFile(file: MinIOFile): Promise<void> {

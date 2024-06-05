@@ -15,7 +15,7 @@ const decodedParentPath = computed(() => decodeURIComponent(props.parentPath))
 const fullPath = computed(() => decodedParentPath.value === '/' ? `/${props.folder.DirName}` : `${decodedParentPath.value}/${props.folder.DirName}`);
 const folderName = computed(() => props.folder.DirName);
 
-const fileDetailDialog = ref(false);
+const folderDetailDialog = ref(false);
 
 function doRequest() {
   props.makeRequest(fullPath.value);
@@ -42,14 +42,14 @@ function doRequest() {
           <v-list-item @click="console.log('Download')">
             <v-icon>mdi-download</v-icon> Download
           </v-list-item>
-          <v-list-item @click="() => {}">
-            <!-- DETAILS DIALOG -->
+          <!-- <v-list-item @click="() => {}">
+            DETAILS DIALOG
             <v-dialog
               activator="parent"
               max-width="30rem"
-              v-model="fileDetailDialog"
+              v-model="folderDetailDialog"
             >
-              <template v-slot:default="{ isActive }">
+              <template v-slot:default="{ isActive: _ }">
                 <v-card>
                   <v-card-title>
                     <div
@@ -59,7 +59,7 @@ function doRequest() {
                       <v-btn
                         icon="mdi-close"
                         variant="flat"
-                        @click="fileDetailDialog = false"
+                        @click="folderDetailDialog = false"
                       ></v-btn>
                     </div>
                   </v-card-title>
@@ -89,7 +89,7 @@ function doRequest() {
             </v-dialog>
 
             <v-icon>mdi-information-outline</v-icon> Details
-          </v-list-item>
+          </v-list-item> -->
           <v-list-item @click="console.log('Mark as favorite')">
             <v-icon>mdi-star-outline</v-icon> Mark as favorite
           </v-list-item>
