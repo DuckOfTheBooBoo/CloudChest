@@ -20,6 +20,7 @@ func FileList(c *gin.Context) {
 	db := c.MustGet("db").(*gorm.DB)
 	userClaim := c.MustGet("userClaims").(*utils.UserClaims)
 	path := c.Query("path")
+	isTrashCan := c.DefaultQuery("trashCan", "true") == "true"
 
 	if path == "" {
 		c.JSON(http.StatusBadRequest, gin.H{
@@ -34,6 +35,20 @@ func FileList(c *gin.Context) {
 	if err != nil {
 		c.Status(http.StatusInternalServerError)
 		log.Println(err.Error())
+		return
+	}
+
+	if isTrashCan {
+		var trashedFiles []models.File
+		if err := db.Unscoped().Where("user_id = ? AND deleted_at IS NOT NULL", user.ID).Find(&trashedFiles).Error; err != nil {
+			c.Status(http.StatusInternalServerError)
+			log.Println(err.Error())
+			return
+		}
+
+		c.JSON(http.StatusOK, gin.H{
+			"files": trashedFiles,
+		})
 		return
 	}
 
