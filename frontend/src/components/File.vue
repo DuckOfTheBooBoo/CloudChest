@@ -4,6 +4,7 @@ import { formatDistance } from "date-fns";
 import { fileDetailFormatter } from "../utils/fileDetailFormatter";
 import Filename from "./Filename.vue";
 import { MinIOFile } from "../models/file";
+import { trashFile } from "../utils/filesApi";
 const props = defineProps<{ 
   file: MinIOFile
 }>();
@@ -38,7 +39,7 @@ const fileDetailDialog = ref(false);
               max-width="30rem"
               v-model="fileDetailDialog"
             >
-              <template v-slot:default="{ isActive }">
+              <template v-slot:default="{ isActive: _ }">
                 <v-card>
                   <v-card-title>
                     <div
@@ -82,7 +83,7 @@ const fileDetailDialog = ref(false);
           <v-list-item @click="console.log('Mark as favorite')">
             <v-icon>mdi-star-outline</v-icon> Mark as favorite
           </v-list-item>
-          <v-list-item @click="console.log('Delete')">
+          <v-list-item @click="trashFile(file)">
             <v-icon>mdi-trash-can</v-icon> Delete
           </v-list-item>
         </v-list>
