@@ -426,6 +426,7 @@ func FileUpdate(c *gin.Context) {
 	var fileUpdateBody struct {
 		FileName   string `validate:"required"`
 		IsFavorite bool   `validate:"boolean"`
+		Restore bool `validate:"boolean"`
 	}
 
 	validate := validator.New()
@@ -447,16 +448,27 @@ func FileUpdate(c *gin.Context) {
 	// {
 	// 	"FileName": "error.log",
 	// 	"IsFavorite": false,
+	// 	"Restore": false
 	// }
 
 	// Find file
 	var file models.File
-	if err := db.Where("id = ? AND user_id = ?", fileID, user.ID).First(&file).Error; err != nil {
-		c.JSON(http.StatusNotFound, gin.H{
-			"error": "File not found",
-		})
-		log.Println(err.Error())
-		return
+	if !fileUpdateBody.Restore {
+		if err := db.Where("id = ? AND user_id = ?", fileID, user.ID).First(&file).Error; err != nil {
+			c.JSON(http.StatusNotFound, gin.H{
+				"error": "File not found",
+			})
+			log.Println(err.Error())
+			return
+		}
+	} else {
+		if err := db.Unscoped().Where("id = ? AND user_id = ?", fileID, user.ID).First(&file).Error; err != nil {
+			c.JSON(http.StatusNotFound, gin.H{
+				"error": "File not found",
+			})
+			log.Println(err.Error())
+			return
+		}
 	}
 
 	if fileUpdateBody.FileName != file.FileName {
@@ -466,6 +478,16 @@ func FileUpdate(c *gin.Context) {
 
 	file.FileName = fileUpdateBody.FileName
 	file.IsFavorite = fileUpdateBody.IsFavorite
+
+	if fileUpdateBody.Restore {
+		if err := db.Unscoped().Model(&file).Update("deleted_at", nil).Error; err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{
+				"error": "Failed to restore file",
+			})
+			log.Println(err.Error())
+			return
+		}
+	}
 
 	if err := db.Save(&file).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
