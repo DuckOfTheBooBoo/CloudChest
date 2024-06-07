@@ -8,10 +8,10 @@ import (
 	"net/http"
 	"path/filepath"
 	// "strings"
-	"github.com/go-playground/validator/v10"
 	"github.com/DuckOfTheBooBoo/web-gallery-app/backend/models"
 	"github.com/DuckOfTheBooBoo/web-gallery-app/backend/utils"
 	"github.com/gin-gonic/gin"
+	"github.com/go-playground/validator/v10"
 	"github.com/minio/minio-go/v7"
 	"gorm.io/gorm"
 )
@@ -424,8 +424,8 @@ func FileUpdate(c *gin.Context) {
 	}
 
 	var fileUpdateBody struct {
-		FileName string `json:"file_name" validate:"required,ascii"`
-		IsFavorite bool `json:"is_favorite" validate:"required"`
+		FileName   string `validate:"required"`
+		IsFavorite bool   `validate:"boolean"`
 	}
 
 	validate := validator.New()
