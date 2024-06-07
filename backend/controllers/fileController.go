@@ -8,7 +8,7 @@ import (
 	"net/http"
 	"path/filepath"
 	// "strings"
-
+	"github.com/go-playground/validator/v10"
 	"github.com/DuckOfTheBooBoo/web-gallery-app/backend/models"
 	"github.com/DuckOfTheBooBoo/web-gallery-app/backend/utils"
 	"github.com/gin-gonic/gin"
@@ -20,7 +20,8 @@ func FileList(c *gin.Context) {
 	db := c.MustGet("db").(*gorm.DB)
 	userClaim := c.MustGet("userClaims").(*utils.UserClaims)
 	path := c.Query("path")
-	isTrashCan := c.DefaultQuery("trashCan", "true") == "true"
+	isTrashCan := c.DefaultQuery("trashCan", "false") == "true"
+	isFavorite := c.DefaultQuery("favorite", "false") == "true"
 
 	if path == "" {
 		c.JSON(http.StatusBadRequest, gin.H{
@@ -35,6 +36,27 @@ func FileList(c *gin.Context) {
 	if err != nil {
 		c.Status(http.StatusInternalServerError)
 		log.Println(err.Error())
+		return
+	}
+
+	if isTrashCan && isFavorite {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": "Invalid query",
+		})
+		return
+	}
+
+	if isFavorite {
+		var favoriteFiles []models.File
+		if err := db.Where("user_id = ? AND is_favorite = ?", user.ID, true).Find(&favoriteFiles).Error; err != nil {
+			c.Status(http.StatusInternalServerError)
+			log.Println(err.Error())
+			return
+		}
+
+		c.JSON(http.StatusOK, gin.H{
+			"files": favoriteFiles,
+		})
 		return
 	}
 
@@ -159,6 +181,7 @@ func FileUpload(c *gin.Context) {
 			FileType:    file.Header.Get("Content-Type"),
 			DirPath:     filepath.Dir(fileName),
 			StoragePath: fileName,
+			IsFavorite:  false,
 		}
 
 		err = db.Create(&newFile).Error
@@ -212,7 +235,9 @@ func FileUpload(c *gin.Context) {
 			FileType:    file.Header.Get("Content-Type"),
 			DirPath:     filepath.Dir(fileName),
 			StoragePath: fileName,
+			IsFavorite:  false,
 		}
+
 		newFiles = append(newFiles, newFile)
 
 		// UPLOAD FILE TO MINIO
@@ -381,5 +406,76 @@ func FileNewPath(c *gin.Context) {
 
 	c.JSON(http.StatusCreated, gin.H{
 		"path": path,
+	})
+}
+
+func FileUpdate(c *gin.Context) {
+	db := c.MustGet("db").(*gorm.DB)
+	userClaim := c.MustGet("userClaims").(*utils.UserClaims)
+	fileID := c.Param("fileID")
+
+	var user models.User
+	err := db.Where("id = ?", userClaim.ID).First(&user).Error
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{
+			"error": "User not found",
+		})
+		return
+	}
+
+	var fileUpdateBody struct {
+		FileName string `json:"file_name" validate:"required,ascii"`
+		IsFavorite bool `json:"is_favorite" validate:"required"`
+	}
+
+	validate := validator.New()
+
+	if err := c.BindJSON(&fileUpdateBody); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": "No request body (JSON) included.",
+		})
+		return
+	}
+
+	if err := validate.Struct(fileUpdateBody); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": err.Error(),
+		})
+		return
+	}
+
+	// {
+	// 	"FileName": "error.log",
+	// 	"IsFavorite": false,
+	// }
+
+	// Find file
+	var file models.File
+	if err := db.Where("id = ? AND user_id = ?", fileID, user.ID).First(&file).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{
+			"error": "File not found",
+		})
+		log.Println(err.Error())
+		return
+	}
+
+	if fileUpdateBody.FileName != file.FileName {
+		c.Status(http.StatusMethodNotAllowed)
+		return
+	}
+
+	file.FileName = fileUpdateBody.FileName
+	file.IsFavorite = fileUpdateBody.IsFavorite
+
+	if err := db.Save(&file).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error": "Failed to update file",
+		})
+		log.Println(err.Error())
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"file": file,
 	})
 }
