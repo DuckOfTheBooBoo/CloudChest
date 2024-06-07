@@ -10,6 +10,7 @@ export function fileDetailFormatter(file: MinIOFile): Object {
     Location: file.StoragePath,
     "Created at": format(file.CreatedAt, "PPPppp"),
     "Updated at": format(file.UpdatedAt, "PPPppp"),
+    "Deleted at": file.DeletedAt ? format(file.DeletedAt, "PPPppp") : null,
   };
 }
 

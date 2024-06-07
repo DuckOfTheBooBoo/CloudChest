@@ -15,9 +15,16 @@ const fileDetailDialog = ref(false);
 async function toggleFavorite(): Promise<void> {
   const fileCopy: MinIOFile = file;
   fileCopy.IsFavorite = !file.IsFavorite;
-  const isSuccessful: boolean = await updateFile(fileCopy);
+  const isSuccessful: boolean = await updateFile(fileCopy, false);
   if (isSuccessful) {
     file.IsFavorite = !file.IsFavorite
+  }
+}
+
+async function restoreFile(): Promise<void> {
+  const isSuccessful: boolean = await updateFile(file, true);
+  if (isSuccessful) {
+    file.DeletedAt = null;
   }
 }
 </script>
@@ -94,8 +101,11 @@ async function toggleFavorite(): Promise<void> {
             <span v-if="!file.IsFavorite"><v-icon>mdi-star-outline</v-icon>Mark as favorite</span>
             <span v-else><v-icon>mdi-star</v-icon>Unfavorite</span>
           </v-list-item>
-          <v-list-item @click="trashFile(file)">
+          <v-list-item v-if="!file.DeletedAt" @click="trashFile(file)">
             <v-icon>mdi-trash-can</v-icon> Delete
+          </v-list-item>
+          <v-list-item v-else @click="restoreFile">
+            <v-icon>mdi-delete-restore</v-icon> Restore
           </v-list-item>
         </v-list>
       </v-menu>

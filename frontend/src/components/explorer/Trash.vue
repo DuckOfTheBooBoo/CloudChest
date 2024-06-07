@@ -3,17 +3,25 @@ import { Ref, ref, onBeforeMount } from "vue";
 import { MinIOFile } from "../../models/file";
 import File from "../File.vue";
 import { getTrashCan } from "../../utils/filesApi";
+import { useEventEmitterStore } from "../../stores/eventEmitterStore";
+import { FILE_UPDATED } from "../../constants";
 
 const fileList: Ref<MinIOFile[]> = ref([] as MinIOFile[]);
 
+const eventEmitter = useEventEmitterStore();
+
+eventEmitter.eventEmitter.on(FILE_UPDATED, fetchTrashCan);
+
 const isLoading = ref<boolean>(false);
 
-onBeforeMount(async () => {
+onBeforeMount(fetchTrashCan);
+
+async function fetchTrashCan(): Promise<void> {
   isLoading.value = true;
   const response = await getTrashCan();
   fileList.value = response.files;
   isLoading.value = false;
-});
+}
 </script>
 
 <template>

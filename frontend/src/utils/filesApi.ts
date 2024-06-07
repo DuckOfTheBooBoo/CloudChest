@@ -80,12 +80,13 @@ export async function trashFile(file: MinIOFile): Promise<void> {
   }
 }
 
-export async function updateFile(file: MinIOFile): Promise<boolean> {
-  const body: {FileName: string, IsFavorite: boolean} = {
+export async function updateFile(file: MinIOFile, isRestoreFile: boolean): Promise<boolean> {
+  const body: {FileName: string, IsFavorite: boolean, Restore: boolean} = {
     FileName: file.FileName,
     IsFavorite: file.IsFavorite,
+    Restore: isRestoreFile,
   };
-  console.log(body);
+
 
   try {
     await axios.put(`http://localhost:3000/api/files/${file.ID}`, body);
