@@ -55,6 +55,21 @@ export async function getTrashCan(): Promise<{files: MinIOFile[]}> {
   return { files: [] };
 }
 
+export async function getFavoriteFiles(): Promise<{files: MinIOFile[]}> {
+  try {
+    const response = await axios.get("http://localhost:3000/api/files", {
+      params: {
+        favorite: true,
+        path: 'a'
+      }
+    });
+    return { files: response.data.files as MinIOFile[] };
+  } catch (error) {
+    console.error(error);
+  }
+  return { files: [] };
+}
+
 export async function trashFile(file: MinIOFile): Promise<void> {
   try {
     await axios.delete(`http://localhost:3000/api/files/${file.ID}?trash=true`);
@@ -63,4 +78,23 @@ export async function trashFile(file: MinIOFile): Promise<void> {
   } catch (error) {
     console.error(error);
   }
+}
+
+export async function updateFile(file: MinIOFile): Promise<boolean> {
+  const body: {FileName: string, IsFavorite: boolean} = {
+    FileName: file.FileName,
+    IsFavorite: file.IsFavorite,
+  };
+  console.log(body);
+
+  try {
+    await axios.put(`http://localhost:3000/api/files/${file.ID}`, body);
+    const eventEmitter = useEventEmitterStore();
+    eventEmitter.eventEmitter.emit(FILE_UPDATED);
+    return true;
+  } catch (error) {
+    console.error(error);
+  }
+
+  return false;
 }

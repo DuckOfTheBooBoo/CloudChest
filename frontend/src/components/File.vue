@@ -4,12 +4,22 @@ import { formatDistance } from "date-fns";
 import { fileDetailFormatter } from "../utils/fileDetailFormatter";
 import Filename from "./Filename.vue";
 import { MinIOFile } from "../models/file";
-import { trashFile } from "../utils/filesApi";
+import { trashFile, updateFile } from "../utils/filesApi";
 const props = defineProps<{ 
   file: MinIOFile
 }>();
+
 const file = props.file;
 const fileDetailDialog = ref(false);
+
+async function toggleFavorite(): Promise<void> {
+  const fileCopy: MinIOFile = file;
+  fileCopy.IsFavorite = !file.IsFavorite;
+  const isSuccessful: boolean = await updateFile(fileCopy);
+  if (isSuccessful) {
+    file.IsFavorite = !file.IsFavorite
+  }
+}
 </script>
 
 <template>
@@ -80,8 +90,9 @@ const fileDetailDialog = ref(false);
 
             <v-icon>mdi-information-outline</v-icon> Details
           </v-list-item>
-          <v-list-item @click="console.log('Mark as favorite')">
-            <v-icon>mdi-star-outline</v-icon> Mark as favorite
+          <v-list-item @click="toggleFavorite">
+            <span v-if="!file.IsFavorite"><v-icon>mdi-star-outline</v-icon>Mark as favorite</span>
+            <span v-else><v-icon>mdi-star</v-icon>Unfavorite</span>
           </v-list-item>
           <v-list-item @click="trashFile(file)">
             <v-icon>mdi-trash-can</v-icon> Delete

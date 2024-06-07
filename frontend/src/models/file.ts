@@ -10,6 +10,7 @@ export interface FileResponse {
   FileSize: number;
   FileType: string;
   StoragePath: string;
+  IsFavorite: boolean;
 }
 
 export class MinIOFile {
@@ -22,6 +23,7 @@ export class MinIOFile {
   FileSize: number;
   FileType: string;
   StoragePath: string;
+  IsFavorite: boolean;
   constructor(object: FileResponse) {
     this.ID = object.ID;
     this.CreatedAt = parseISO(object.CreatedAt);
@@ -32,6 +34,7 @@ export class MinIOFile {
     this.FileSize = object.FileSize;
     this.FileType = object.FileType;
     this.StoragePath = object.StoragePath;
+    this.IsFavorite = object.IsFavorite;
   }
 }
 

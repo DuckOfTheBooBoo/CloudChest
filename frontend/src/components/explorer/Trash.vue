@@ -2,13 +2,10 @@
 import { Ref, ref, onBeforeMount } from "vue";
 import { MinIOFile } from "../../models/file";
 import File from "../File.vue";
-import { useEventEmitterStore } from "../../stores/eventEmitterStore";
-import { FILE_UPDATED } from "../../constants";
 import { getTrashCan } from "../../utils/filesApi";
 
 const fileList: Ref<MinIOFile[]> = ref([] as MinIOFile[]);
 
-const eventEmitter = useEventEmitterStore();
 const isLoading = ref<boolean>(false);
 
 onBeforeMount(async () => {
