@@ -3,17 +3,26 @@ import { Ref, ref, onBeforeMount } from "vue";
 import { MinIOFile } from "../../models/file";
 import File from "../File.vue";
 import { getFavoriteFiles } from "../../utils/filesApi";
+import { useEventEmitterStore } from "../../stores/eventEmitterStore";
+import { FILE_UPDATED } from "../../constants";
 
 const fileList: Ref<MinIOFile[]> = ref([] as MinIOFile[]);
 
 const isLoading = ref<boolean>(false);
 
-onBeforeMount(async () => {
+
+const eventEmitter = useEventEmitterStore();
+
+eventEmitter.eventEmitter.on(FILE_UPDATED, fetchFavoriteFiles);
+
+onBeforeMount(fetchFavoriteFiles);
+
+async function fetchFavoriteFiles(): Promise<void> {
   isLoading.value = true;
   const response = await getFavoriteFiles();
   fileList.value = response.files;
   isLoading.value = false;
-});
+}
 </script>
 
 <template>
