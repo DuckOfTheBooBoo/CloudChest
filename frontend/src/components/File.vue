@@ -97,7 +97,7 @@ async function restoreFile(): Promise<void> {
 
             <v-icon>mdi-information-outline</v-icon> Details
           </v-list-item>
-          <v-list-item @click="toggleFavorite">
+          <v-list-item @click="toggleFavorite" v-if="!file.DeletedAt">
             <span v-if="!file.IsFavorite"><v-icon>mdi-star-outline</v-icon>Mark as favorite</span>
             <span v-else><v-icon>mdi-star</v-icon>Unfavorite</span>
           </v-list-item>
