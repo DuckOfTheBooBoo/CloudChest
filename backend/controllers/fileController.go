@@ -7,6 +7,8 @@ import (
 	"log"
 	"net/http"
 	"path/filepath"
+	"strings"
+
 	// "strings"
 	"github.com/DuckOfTheBooBoo/web-gallery-app/backend/models"
 	"github.com/DuckOfTheBooBoo/web-gallery-app/backend/utils"
@@ -398,8 +400,32 @@ func FileNewPath(c *gin.Context) {
 
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
-			"error": "Failed to upload file",
+			"error": "Failed to create new folder",
 		})
+		log.Println(err.Error())
+		return
+	}
+
+	// Split path into parts
+	pathParts := strings.Split(path, "/")
+	// Get the latest part
+	latestPart := pathParts[len(pathParts)-1]
+	// Remove the latest part from the path
+	pathParts = pathParts[:len(pathParts)-1]
+	parentPath := strings.Join(pathParts[:], "/") 
+
+	if len(parentPath) == 0 {
+		parentPath = "/"
+	}
+
+	newFolderChildRecord := models.FolderChild{
+		UserID: user.ID,
+		Parent: parentPath,
+		Child:  latestPart,
+	}
+
+	if err := db.Create(&newFolderChildRecord).Error; err != nil {
+		c.Status(http.StatusInternalServerError)
 		log.Println(err.Error())
 		return
 	}
