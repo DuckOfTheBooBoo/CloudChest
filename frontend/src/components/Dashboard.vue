@@ -69,7 +69,7 @@ async function newFolder(_: Event): Promise<void> {
 const rules = {
   required: (value: string) => !!value || 'Field is required',
 };
-
+console.log(route)
 </script> 
 
 <template>
@@ -100,7 +100,7 @@ const rules = {
       <v-list-item>
         <v-menu>
           <template v-slot:activator="{ props }">
-            <v-btn class="rounded-lg mt-2" variant="tonal" block v-bind="props">
+            <v-btn class="rounded-lg mt-2" variant="tonal" block v-bind="props" :disabled="route.name != 'explorer-files'">
               <v-icon>mdi-plus</v-icon>
               New
             </v-btn>
