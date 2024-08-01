@@ -70,9 +70,10 @@ export async function getFavoriteFiles(): Promise<{files: MinIOFile[]}> {
   return { files: [] };
 }
 
-export async function trashFile(file: MinIOFile): Promise<void> {
+export async function trashFile(file: MinIOFile, isTrashFile: boolean): Promise<void> {
+  const url: string = `http://localhost:3000/api/files/${file.ID}?trash=${isTrashFile}`;
   try {
-    await axios.delete(`http://localhost:3000/api/files/${file.ID}?trash=true`);
+    await axios.delete(url);
     const eventEmitter = useEventEmitterStore();
     eventEmitter.eventEmitter.emit(FILE_UPDATED);
   } catch (error) {

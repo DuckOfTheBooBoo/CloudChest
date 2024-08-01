@@ -27,6 +27,14 @@ async function restoreFile(): Promise<void> {
     file.DeletedAt = null;
   }
 }
+
+async function pruneFile(): Promise<void> {
+  try {
+    await trashFile(file, false);
+  } catch (error) {
+    console.error(error);
+  }
+}
 </script>
 
 <template>
@@ -79,11 +87,29 @@ async function restoreFile(): Promise<void> {
                 <span v-if="!file.IsFavorite"><v-icon>mdi-star-outline</v-icon>Mark as favorite</span>
                 <span v-else><v-icon>mdi-star</v-icon>Unfavorite</span>
               </v-list-item>
-              <v-list-item v-if="!file.DeletedAt" @click="trashFile(file)">
+              <v-list-item v-if="!file.DeletedAt" @click="trashFile(file, true)">
                 <v-icon>mdi-trash-can</v-icon> Delete
               </v-list-item>
               <v-list-item v-else @click="restoreFile">
                 <v-icon>mdi-delete-restore</v-icon> Restore
+              </v-list-item>
+              <v-list-item v-if="file.DeletedAt" @click="() => { }">
+                <v-icon>mdi-delete-forever</v-icon> Prune
+                <v-dialog activator="parent" max-width="340">
+                  <template v-slot:default="{ isActive }">
+                    <v-card prepend-icon="mdi-alert"
+                      text="Pruning will delete the file permanently, are you sure?"
+                      title="Confirmation Dialog">
+                      <template v-slot:actions>
+                        <v-btn class="" @click="isActive.value = false">Cancel</v-btn>
+                        <v-btn class="text-red" variant="outlined" @click="() => {
+                          isActive.value = false
+                          pruneFile()
+                        }">Delete</v-btn>
+                      </template>
+                    </v-card>
+                  </template>
+                </v-dialog>
               </v-list-item>
             </v-list>
           </v-menu>
