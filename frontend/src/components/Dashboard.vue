@@ -9,6 +9,7 @@ const selectedNav = ref(0);
 const router = useRouter();
 const route = useRoute();
 const file = ref<File | null>(null);
+const newFolderName = ref<string | null>(null);
 
 const eventEmitter = useEventEmitterStore();
 
@@ -50,7 +51,26 @@ async function uploadFile(_: Event): Promise<void> {
     file.value = null;
   }
 }
-</script>
+
+async function newFolder(_: Event): Promise<void> {
+  try {
+    await axios.post('http://localhost:3000/api/files/path', {}, {
+      params: {path: decodeURIComponent(route.query.path as string) + "/" + newFolderName.value}
+    });
+    eventEmitter.eventEmitter.emit(FILE_UPDATED);
+  } catch (error) {
+    console.error(error);
+  } finally {
+    newFolderDialog.value = false; // end
+    newFolderName.value = null;
+  }
+}
+
+const rules = {
+  required: (value: string) => !!value || 'Field is required',
+};
+
+</script> 
 
 <template>
   <v-layout class="rounded rounded-md">
@@ -155,17 +175,17 @@ async function uploadFile(_: Event): Promise<void> {
       persistent
     >
       <template v-slot:default="{ isActive:_ }">
-        <v-card title="Create new folder">
-          <v-card-text>
-            <v-text-field label="Folder name" variant="outlined"></v-text-field>
-          </v-card-text>
-          <v-card-actions>
-            <v-btn @click="newFolderDialog = false">Cancel</v-btn>
-            <v-btn variant="tonal" color="blue" @click="newFolderDialog = false"
-              >Create</v-btn
-            >
-          </v-card-actions>
-        </v-card>
+        <form @submit.prevent="newFolder">
+          <v-card title="Create new folder">
+            <v-card-text>
+              <v-text-field label="Folder name" v-model="newFolderName" variant="outlined" :rules="[rules.required]"></v-text-field>
+            </v-card-text>
+            <v-card-actions>
+              <v-btn @click="newFolderDialog = false">Cancel</v-btn>
+              <v-btn variant="tonal" color="blue" @click="newFolderDialog = false" type="submit">Create</v-btn>
+            </v-card-actions>
+          </v-card>
+        </form>
       </template>
     </v-dialog>
 
