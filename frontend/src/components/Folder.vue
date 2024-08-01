@@ -23,26 +23,21 @@ function doRequest() {
 </script>
 
 <template>
-  <v-card max-width="10rem" class="pa-2 rounded-lg" hover @click="doRequest">
-    <!-- Upper part (file name and menu) -->
-    <div
-      class="tw-flex tw-flex-row tw-h-full tw-mb-3 tw-w-full tw-items-center tw-justify-between"
-    >
-      <Filename :filename="folderName" />
-      <v-menu>
-        <template v-slot:activator="{ props: menuProps }">
-          <v-btn
-            density="compact"
-            icon="mdi-dots-vertical"
-            variant="plain"
-            v-bind="menuProps"
-          ></v-btn>
-        </template>
-        <v-list>
-          <v-list-item @click="console.log('Download')">
-            <v-icon>mdi-download</v-icon> Download
-          </v-list-item>
-          <!-- <v-list-item @click="() => {}">
+  <v-tooltip :text="folderName" location="bottom">
+    <template v-slot:activator="{ props: tltpProps }">
+      <v-card max-width="10rem" class="pa-2 rounded-lg" hover @click="doRequest" v-bind="tltpProps">
+        <!-- Upper part (file name and menu) -->
+        <div class="tw-flex tw-flex-row tw-h-full tw-mb-3 tw-w-full tw-items-center tw-justify-between">
+          <Filename :filename="folderName" />
+          <v-menu>
+            <template v-slot:activator="{ props: menuProps }">
+              <v-btn density="compact" icon="mdi-dots-vertical" variant="plain" v-bind="menuProps"></v-btn>
+            </template>
+            <v-list>
+              <v-list-item @click="console.log('Download')">
+                <v-icon>mdi-download</v-icon> Download
+              </v-list-item>
+              <!-- <v-list-item @click="() => {}">
             DETAILS DIALOG
             <v-dialog
               activator="parent"
@@ -90,27 +85,27 @@ function doRequest() {
 
             <v-icon>mdi-information-outline</v-icon> Details
           </v-list-item> -->
-          <v-list-item @click="console.log('Mark as favorite')">
-            <v-icon>mdi-star-outline</v-icon> Mark as favorite
-          </v-list-item>
-          <v-list-item @click="console.log('Delete')">
-            <v-icon>mdi-trash-can</v-icon> Delete
-          </v-list-item>
-        </v-list>
-      </v-menu>
-    </div>
+              <v-list-item @click="console.log('Mark as favorite')">
+                <v-icon>mdi-star-outline</v-icon> Mark as favorite
+              </v-list-item>
+              <v-list-item @click="console.log('Delete')">
+                <v-icon>mdi-trash-can</v-icon> Delete
+              </v-list-item>
+            </v-list>
+          </v-menu>
+        </div>
 
-    <div
-      class="tw-flex tw-justify-center tw-items-center tw-mb-2 tw-w-full tw-h-16 tw-rounded-lg bg-grey-darken-3"
-    >
-      <v-icon icon="mdi-trash-can"></v-icon>
-    </div>
+        <div class="tw-flex tw-justify-center tw-items-center tw-mb-2 tw-w-full tw-h-16 tw-rounded-lg bg-grey-darken-3">
+          <v-icon icon="mdi-trash-can"></v-icon>
+        </div>
 
-    <!-- Bottom part (date) -->
-    <p class="text-caption">
-      {{ formatDistance(folder.CreatedAt, new Date(), { addSuffix: true }) }}
-    </p>
-  </v-card>
+        <!-- Bottom part (date) -->
+        <p class="text-caption">
+          {{ formatDistance(folder.CreatedAt, new Date(), { addSuffix: true }) }}
+        </p>
+      </v-card>
+    </template>
+  </v-tooltip>
 </template>
 
-<script setup></script>
+  <script setup></script>
