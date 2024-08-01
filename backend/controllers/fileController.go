@@ -43,7 +43,7 @@ func FileList(c *gin.Context) {
 
 	if isTrashCan && isFavorite {
 		c.JSON(http.StatusBadRequest, gin.H{
-			"error": "Invalid query",
+			"error": "Cannot use trash can and favorite at the same time.",
 		})
 		return
 	}
