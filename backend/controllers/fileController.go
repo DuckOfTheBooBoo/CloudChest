@@ -14,6 +14,7 @@ import (
 	"github.com/DuckOfTheBooBoo/web-gallery-app/backend/utils"
 	"github.com/gin-gonic/gin"
 	"github.com/go-playground/validator/v10"
+	"github.com/gofrs/uuid/v5"
 	"github.com/minio/minio-go/v7"
 	"gorm.io/gorm"
 )
@@ -21,16 +22,9 @@ import (
 func FileList(c *gin.Context) {
 	db := c.MustGet("db").(*gorm.DB)
 	userClaim := c.MustGet("userClaims").(*utils.UserClaims)
-	path := c.Query("path")
+	folderCode := c.DefaultQuery("code", "/")
 	isTrashCan := c.DefaultQuery("trashCan", "false") == "true"
 	isFavorite := c.DefaultQuery("favorite", "false") == "true"
-
-	if path == "" {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"error": "No path provided",
-		})
-		return
-	}
 
 	var user models.User
 	err := db.First(&user, "id = ?", userClaim.ID).Error
@@ -77,47 +71,37 @@ func FileList(c *gin.Context) {
 	}
 
 	var files []models.File
-	if err := db.Where("user_id = ? AND dir_path = ?", user.ID, path).Find(&files).Error; err != nil {
+	if err := db.Where("user_id = ? AND code = ?", user.ID, folderCode).Find(&files).Error; err != nil {
 		c.Status(http.StatusInternalServerError)
 		log.Println(err.Error())
 		return
 	}
 
-	var folderChildren []models.FolderChild
+	var parentFolder models.Folder
+	if err := db.Where("user_id = ? AND code = ?", user.ID, folderCode).First(&parentFolder).Error; err != nil {
+		c.Status(http.StatusInternalServerError)
+		log.Println(err.Error())
+		return
+	}
+
+	var subFolders []models.Folder
 	// Generate parent and child folders
-	if err := db.Where("user_id = ? AND parent = ?", user.ID, path).Find(&folderChildren).Error; err != nil {
+	if err := db.Where("user_id = ? AND parent_id = ?", user.ID, parentFolder.ID).Find(&subFolders).Error; err != nil {
 		c.Status(http.StatusInternalServerError)
 		log.Println(err.Error())
 		return
 	}
-
-	var folders []models.Folder
-	for _, folderChild := range folderChildren {
-		if folderChild.Child != "" {
-			folder := models.Folder{
-				DirName:   folderChild.Child,
-				CreatedAt: folderChild.CreatedAt,
-				UpdatedAt: folderChild.UpdatedAt,
-			}
-
-			folders = append(folders, folder)
-		}
-	}
-
-	// Filter slice to match path provided by request body
-	files = utils.FilterSlice(files, func(file models.File) bool {
-		return filepath.Dir(file.StoragePath) == path
-	})
 
 	c.JSON(http.StatusOK, gin.H{
 		"files":   files,
-		"folders": folders,
+		"folders": subFolders,
 	})
 }
 
 func FileUpload(c *gin.Context) {
 	ctx := context.Background()
 	minioClient := c.MustGet("minio").(*minio.Client)
+	folderCode := c.DefaultQuery("code", "/")
 	db := c.MustGet("db").(*gorm.DB)
 	userClaim := c.MustGet("userClaims").(*utils.UserClaims)
 
@@ -143,15 +127,20 @@ func FileUpload(c *gin.Context) {
 		return
 	}
 
-	pathArray := form.Value["path"]
-	if len(pathArray) == 0 {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"error": "Invalid path",
-		})
-		return
+	var parentFolder models.Folder
+	if folderCode == "/" {
+		if err := db.Where("user_id = ? AND (code IS NULL OR code = '')", user.ID).First(&parentFolder).Error; err != nil {
+			c.Status(http.StatusInternalServerError)
+			log.Println(err.Error())
+			return
+		}
+	} else {
+		if err := db.Where("user_id = ? AND code = ?", user.ID, folderCode).First(&parentFolder).Error; err != nil {
+			c.Status(http.StatusInternalServerError)
+			log.Println(err.Error())
+			return
+		}
 	}
-
-	path := pathArray[0]
 
 	if !isMultipleUploads {
 		file, err := c.FormFile("file")
@@ -162,27 +151,22 @@ func FileUpload(c *gin.Context) {
 			return
 		}
 
-		fileName := filepath.Join(path, file.Filename)
-
-		if filepath.Dir(fileName) != "" || filepath.Dir(fileName) != "/" {
-			// Create a parent dir -> child dir mapping
-			log.Println("CREATING PARENT CHILD MAP")
-			parentChildDir := utils.GenerateParentChildDir(userClaim.ID, filepath.Dir(fileName))
-
-			for _, parentChild := range parentChildDir {
-				db.Create(&parentChild)
-			}
+		fileCode, err := uuid.NewV4()
+		if err != nil {
+			c.Status(http.StatusInternalServerError)
+			log.Println(err.Error())
+			return
 		}
 
 		// UPLOAD FILE RECORD TO RDBMS
 		// Create new File record in rbdms
 		newFile := models.File{
 			UserID:      userClaim.ID,
+			FolderID: parentFolder.ID,
 			FileName:    file.Filename,
+			FileCode:    fileCode.String(),
 			FileSize:    uint(file.Size),
 			FileType:    file.Header.Get("Content-Type"),
-			DirPath:     filepath.Dir(fileName),
-			StoragePath: fileName,
 			IsFavorite:  false,
 		}
 
@@ -208,7 +192,10 @@ func FileUpload(c *gin.Context) {
 		}
 		defer uploadedFile.Close()
 
-		_, err = minioClient.PutObject(ctx, user.MinioBucket, fileName, uploadedFile, file.Size, minio.PutObjectOptions{ContentType: file.Header.Get("Content-Type")})
+		fileExt := utils.GetFileExtension(file.Filename)
+		filePath := "/" + fileCode.String() + "." + fileExt
+
+		_, err = minioClient.PutObject(ctx, user.MinioBucket, filePath, uploadedFile, file.Size, minio.PutObjectOptions{ContentType: file.Header.Get("Content-Type")})
 
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{
@@ -226,17 +213,22 @@ func FileUpload(c *gin.Context) {
 
 	files := form.File["files"]
 	var newFiles []models.File
-	baseFilePath := filepath.Dir(newFiles[0].StoragePath)
 
 	for _, file := range files {
-		fileName := filepath.Join(path, file.Filename)
+		fileCode, err := uuid.NewV4()
+		if err != nil {
+			c.Status(http.StatusInternalServerError)
+			log.Println(err.Error())
+			return
+		}
+
 		newFile := models.File{
 			UserID:      userClaim.ID,
+			FolderID: parentFolder.ID,
 			FileName:    file.Filename,
+			FileCode:    fileCode.String(),
 			FileSize:    uint(file.Size),
 			FileType:    file.Header.Get("Content-Type"),
-			DirPath:     filepath.Dir(fileName),
-			StoragePath: fileName,
 			IsFavorite:  false,
 		}
 
@@ -247,14 +239,17 @@ func FileUpload(c *gin.Context) {
 		uploadedFile, err := file.Open()
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{
-				"error": "Failed to open file",
+				"error": "Failed to open file " + file.Filename,
 			})
 			log.Println(err.Error())
 			return
 		}
 		defer uploadedFile.Close()
 
-		_, err = minioClient.PutObject(ctx, user.MinioBucket, fileName, uploadedFile, file.Size, minio.PutObjectOptions{ContentType: file.Header.Get("Content-Type")})
+		fileExt := utils.GetFileExtension(file.Filename)
+		filePath := "/" + fileCode.String() + "." + fileExt
+
+		_, err = minioClient.PutObject(ctx, user.MinioBucket, filePath, uploadedFile, file.Size, minio.PutObjectOptions{ContentType: file.Header.Get("Content-Type")})
 
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{
@@ -265,18 +260,8 @@ func FileUpload(c *gin.Context) {
 		}
 	}
 
-	if baseFilePath != "" || baseFilePath != "/" {
-		// Create a parent dir -> child dir mapping
-		log.Println("CREATING PARENT CHILD MAP")
-		parentChildDir := utils.GenerateParentChildDir(userClaim.ID, baseFilePath)
-
-		for _, parentChild := range parentChildDir {
-			db.Create(&parentChild)
-		}
-	}
 	// Upload newFiles to rdbms
-	err = db.Create(&newFiles).Error
-	if err != nil {
+	if err := db.Create(&newFiles).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"error": "Failed to create files",
 		})
@@ -319,8 +304,10 @@ func FileDelete(c *gin.Context) {
 			return
 		}
 
+		fileExt := utils.GetFileExtension(file.FileName)
+
 		// DELETE FROM MINIO
-		err = minioClient.RemoveObject(ctx, user.MinioBucket, file.StoragePath, minio.RemoveObjectOptions{})
+		err = minioClient.RemoveObject(ctx, user.MinioBucket, "/" + file.FileCode + "." + fileExt, minio.RemoveObjectOptions{})
 
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{
@@ -409,7 +396,7 @@ func FileNewPath(c *gin.Context) {
 	// Split path into parts
 	pathParts := strings.Split(path, "/")
 	// Get the latest part
-	latestPart := pathParts[len(pathParts)-1]
+	// latestPart := pathParts[len(pathParts)-1]
 	// Remove the latest part from the path
 	pathParts = pathParts[:len(pathParts)-1]
 	parentPath := strings.Join(pathParts[:], "/") 
@@ -418,17 +405,11 @@ func FileNewPath(c *gin.Context) {
 		parentPath = "/"
 	}
 
-	newFolderChildRecord := models.FolderChild{
-		UserID: user.ID,
-		Parent: parentPath,
-		Child:  latestPart,
-	}
-
-	if err := db.Create(&newFolderChildRecord).Error; err != nil {
-		c.Status(http.StatusInternalServerError)
-		log.Println(err.Error())
-		return
-	}
+	// if err := db.Create(&newFolderChildRecord).Error; err != nil {
+	// 	c.Status(http.StatusInternalServerError)
+	// 	log.Println(err.Error())
+	// 	return
+	// }
 
 	c.JSON(http.StatusCreated, gin.H{
 		"path": path,
