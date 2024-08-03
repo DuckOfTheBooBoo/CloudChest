@@ -51,6 +51,7 @@ func main() {
 	router.TokenRoutes(api)
 	router.UserRoutes(api)
 	router.FileRoutes(api)
+	router.FolderRoutes(api)
 
 	// Schedule revoked tokens ('tokens' table in database) pruning
 	c := cron.New()
