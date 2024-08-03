@@ -22,7 +22,7 @@ import (
 func FileList(c *gin.Context) {
 	db := c.MustGet("db").(*gorm.DB)
 	userClaim := c.MustGet("userClaims").(*utils.UserClaims)
-	folderCode := c.DefaultQuery("code", "/")
+	folderCode := c.Param("code")
 	isTrashCan := c.DefaultQuery("trashCan", "false") == "true"
 	isFavorite := c.DefaultQuery("favorite", "false") == "true"
 
@@ -70,38 +70,35 @@ func FileList(c *gin.Context) {
 		return
 	}
 
-	var files []models.File
-	if err := db.Where("user_id = ? AND code = ?", user.ID, folderCode).Find(&files).Error; err != nil {
-		c.Status(http.StatusInternalServerError)
-		log.Println(err.Error())
-		return
-	}
-
 	var parentFolder models.Folder
-	if err := db.Where("user_id = ? AND code = ?", user.ID, folderCode).First(&parentFolder).Error; err != nil {
+	if folderCode == "" {
+		if err := db.Where("user_id = ? AND (code IS NULL OR code = '')", user.ID).First(&parentFolder).Error; err != nil {
+			c.Status(http.StatusInternalServerError)
+			log.Println(err.Error())
+			return
+		}
+	} else {
+		if err := db.Where("user_id = ? AND code = ?", user.ID, folderCode).First(&parentFolder).Error; err != nil {
+			c.Status(http.StatusInternalServerError)
+			log.Println(err.Error())
+			return
+		}
+	}
+
+	var files []models.File
+	if err := db.Where("user_id = ? AND folder_id = ?", user.ID, parentFolder.ID).Find(&files).Error; err != nil {
 		c.Status(http.StatusInternalServerError)
 		log.Println(err.Error())
 		return
 	}
 
-	var subFolders []models.Folder
-	// Generate parent and child folders
-	if err := db.Where("user_id = ? AND parent_id = ?", user.ID, parentFolder.ID).Find(&subFolders).Error; err != nil {
-		c.Status(http.StatusInternalServerError)
-		log.Println(err.Error())
-		return
-	}
-
-	c.JSON(http.StatusOK, gin.H{
-		"files":   files,
-		"folders": subFolders,
-	})
+	c.JSON(http.StatusOK, files)
 }
 
 func FileUpload(c *gin.Context) {
 	ctx := context.Background()
 	minioClient := c.MustGet("minio").(*minio.Client)
-	folderCode := c.DefaultQuery("code", "/")
+	folderCode := c.Param("code")
 	db := c.MustGet("db").(*gorm.DB)
 	userClaim := c.MustGet("userClaims").(*utils.UserClaims)
 
@@ -128,7 +125,7 @@ func FileUpload(c *gin.Context) {
 	}
 
 	var parentFolder models.Folder
-	if folderCode == "/" {
+	if folderCode == "" {
 		if err := db.Where("user_id = ? AND (code IS NULL OR code = '')", user.ID).First(&parentFolder).Error; err != nil {
 			c.Status(http.StatusInternalServerError)
 			log.Println(err.Error())
@@ -161,13 +158,13 @@ func FileUpload(c *gin.Context) {
 		// UPLOAD FILE RECORD TO RDBMS
 		// Create new File record in rbdms
 		newFile := models.File{
-			UserID:      userClaim.ID,
-			FolderID: parentFolder.ID,
-			FileName:    file.Filename,
-			FileCode:    fileCode.String(),
-			FileSize:    uint(file.Size),
-			FileType:    file.Header.Get("Content-Type"),
-			IsFavorite:  false,
+			UserID:     userClaim.ID,
+			FolderID:   parentFolder.ID,
+			FileName:   file.Filename,
+			FileCode:   fileCode.String(),
+			FileSize:   uint(file.Size),
+			FileType:   file.Header.Get("Content-Type"),
+			IsFavorite: false,
 		}
 
 		err = db.Create(&newFile).Error
@@ -223,13 +220,13 @@ func FileUpload(c *gin.Context) {
 		}
 
 		newFile := models.File{
-			UserID:      userClaim.ID,
-			FolderID: parentFolder.ID,
-			FileName:    file.Filename,
-			FileCode:    fileCode.String(),
-			FileSize:    uint(file.Size),
-			FileType:    file.Header.Get("Content-Type"),
-			IsFavorite:  false,
+			UserID:     userClaim.ID,
+			FolderID:   parentFolder.ID,
+			FileName:   file.Filename,
+			FileCode:   fileCode.String(),
+			FileSize:   uint(file.Size),
+			FileType:   file.Header.Get("Content-Type"),
+			IsFavorite: false,
 		}
 
 		newFiles = append(newFiles, newFile)
@@ -307,7 +304,7 @@ func FileDelete(c *gin.Context) {
 		fileExt := utils.GetFileExtension(file.FileName)
 
 		// DELETE FROM MINIO
-		err = minioClient.RemoveObject(ctx, user.MinioBucket, "/" + file.FileCode + "." + fileExt, minio.RemoveObjectOptions{})
+		err = minioClient.RemoveObject(ctx, user.MinioBucket, "/"+file.FileCode+"."+fileExt, minio.RemoveObjectOptions{})
 
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{
@@ -399,7 +396,7 @@ func FileNewPath(c *gin.Context) {
 	// latestPart := pathParts[len(pathParts)-1]
 	// Remove the latest part from the path
 	pathParts = pathParts[:len(pathParts)-1]
-	parentPath := strings.Join(pathParts[:], "/") 
+	parentPath := strings.Join(pathParts[:], "/")
 
 	if len(parentPath) == 0 {
 		parentPath = "/"
@@ -433,7 +430,7 @@ func FileUpdate(c *gin.Context) {
 	var fileUpdateBody struct {
 		FileName   string `validate:"required"`
 		IsFavorite bool   `validate:"boolean"`
-		Restore bool `validate:"boolean"`
+		Restore    bool   `validate:"boolean"`
 	}
 
 	validate := validator.New()
