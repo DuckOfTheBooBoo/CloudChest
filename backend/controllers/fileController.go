@@ -1,13 +1,9 @@
 package controllers
 
 import (
-	"bytes"
 	"context"
-	"io"
 	"log"
 	"net/http"
-	"path/filepath"
-	"strings"
 
 	// "strings"
 	"github.com/DuckOfTheBooBoo/web-gallery-app/backend/models"
@@ -291,22 +287,18 @@ func FileDelete(c *gin.Context) {
 
 	// Check if user wants to trash or permanently delete
 	isTrashDelete := c.DefaultQuery("trash", "true") == "true"
+	// PERMANENT DELETE
 	if !isTrashDelete {
-		err = db.Unscoped().Where("id = ? AND user_id = ?", fileID, userClaim.ID).First(&file).Error
-
-		if err != nil {
+		if err = db.Unscoped().Where("id = ? AND user_id = ?", fileID, userClaim.ID).First(&file).Error; err != nil {
 			c.JSON(http.StatusNotFound, gin.H{
 				"error": "File not found",
 			})
 			return
 		}
-
 		fileExt := utils.GetFileExtension(file.FileName)
 
 		// DELETE FROM MINIO
-		err = minioClient.RemoveObject(ctx, user.MinioBucket, "/"+file.FileCode+"."+fileExt, minio.RemoveObjectOptions{})
-
-		if err != nil {
+		if err := minioClient.RemoveObject(ctx, user.MinioBucket, "/"+file.FileCode+"."+fileExt, minio.RemoveObjectOptions{}); err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{
 				"error": "Failed to delete file",
 			})
@@ -327,17 +319,15 @@ func FileDelete(c *gin.Context) {
 		return
 	}
 
-	err = db.Where("id = ? AND user_id = ?", fileID, userClaim.ID).First(&file).Error
-	if err != nil {
+	if err := db.Where("id = ? AND user_id = ?", fileID, userClaim.ID).First(&file).Error; err != nil {
 		c.JSON(http.StatusNotFound, gin.H{
 			"error": "File not found",
 		})
 		return
 	}
 
-	err = db.Delete(&file).Error
-
-	if err != nil {
+	// Soft delete the file
+	if err := db.Delete(&file).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"error": "Failed to delete file",
 		})
@@ -346,71 +336,6 @@ func FileDelete(c *gin.Context) {
 	}
 
 	c.Status(http.StatusOK)
-}
-
-func FileNewPath(c *gin.Context) {
-	ctx := context.Background()
-	db := c.MustGet("db").(*gorm.DB)
-	minioClient := c.MustGet("minio").(*minio.Client)
-	userClaim := c.MustGet("userClaims").(*utils.UserClaims)
-	path := c.DefaultQuery("path", "/")
-
-	var user models.User
-	err := db.Where("id = ?", userClaim.ID).First(&user).Error
-	if err != nil {
-		c.JSON(http.StatusNotFound, gin.H{
-			"error": "User not found",
-		})
-		return
-	}
-
-	// To create a new path, we could make empty file and upload it to the desired path, then delete it
-	emptyFile := []byte{}
-	emptyFileName := ".newPath"
-
-	reader := bytes.NewReader(emptyFile)
-
-	if _, err := io.Copy(io.Discard, reader); err != nil {
-		c.Status(http.StatusInternalServerError)
-		log.Println(err.Error())
-		return
-	}
-
-	// file path
-	emptyFilePath := filepath.Join(path, emptyFileName)
-
-	// Upload empty file
-	_, err = minioClient.PutObject(ctx, user.MinioBucket, emptyFilePath, reader, 0, minio.PutObjectOptions{ContentType: "text/plain"})
-
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"error": "Failed to create new folder",
-		})
-		log.Println(err.Error())
-		return
-	}
-
-	// Split path into parts
-	pathParts := strings.Split(path, "/")
-	// Get the latest part
-	// latestPart := pathParts[len(pathParts)-1]
-	// Remove the latest part from the path
-	pathParts = pathParts[:len(pathParts)-1]
-	parentPath := strings.Join(pathParts[:], "/")
-
-	if len(parentPath) == 0 {
-		parentPath = "/"
-	}
-
-	// if err := db.Create(&newFolderChildRecord).Error; err != nil {
-	// 	c.Status(http.StatusInternalServerError)
-	// 	log.Println(err.Error())
-	// 	return
-	// }
-
-	c.JSON(http.StatusCreated, gin.H{
-		"path": path,
-	})
 }
 
 func FileUpdate(c *gin.Context) {
@@ -476,11 +401,9 @@ func FileUpdate(c *gin.Context) {
 	}
 
 	if fileUpdateBody.FileName != file.FileName {
-		c.Status(http.StatusMethodNotAllowed)
-		return
+		file.FileName = fileUpdateBody.FileName
 	}
 
-	file.FileName = fileUpdateBody.FileName
 	file.IsFavorite = fileUpdateBody.IsFavorite
 
 	if fileUpdateBody.Restore {
