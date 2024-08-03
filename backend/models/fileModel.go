@@ -11,5 +11,5 @@ type File struct {
 	FileSize    uint   `gorm:"not null"`
 	FileType    string `gorm:"type:varchar(100);not null"`
 	IsFavorite  bool   `gorm:"not null"`
-	Folder Folder `gorm:"foreignKey:FolderID"`
+	Folder *Folder `gorm:"foreignKey:FolderID"`
 }
