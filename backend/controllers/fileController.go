@@ -353,9 +353,9 @@ func FileUpdate(c *gin.Context) {
 	}
 
 	var fileUpdateBody struct {
-		FileName   string `validate:"required"`
-		IsFavorite bool   `validate:"boolean"`
-		Restore    bool   `validate:"boolean"`
+		FileName   string `validate:"required" json:"file_name"`
+		IsFavorite bool   `validate:"boolean" json:"is_favorite"`
+		Restore    bool   `validate:"boolean" json:"is_restore"`
 	}
 
 	validate := validator.New()
