@@ -11,19 +11,19 @@ const routes = [
   { path: '/', redirect: '/login' },
   { path: '/login', component: Login, name: 'login' },
   { path: '/signup', component: SignUp, name: 'signup' },
-  { path: '/explorer', redirect: (to: any) => {
-    const encodedPath = encodeURIComponent('/');
-    return { path: '/explorer/files', query: { path: encodedPath } };
-  } },
-  { 
-    path: '/explorer', 
+  {
+    path: '/explorer',
     component: Dashboard,
     children: [
       {
         path: 'files',
         component: Files,
-        beforeEnter: beforeEnterGuard,
         name: 'explorer-files',
+      },
+      {
+        path: 'files/:code',
+        component: Files,
+        name: 'explorer-files-code',
       },
       {
         path: 'favorite',
@@ -35,21 +35,16 @@ const routes = [
       },
     ]
   },
+  {
+    path: '/explorer',
+    redirect: '/explorer/files'
+  },
 ];
 
 const router = createRouter({
   history: createWebHistory(),
   routes,
 });
-
-function beforeEnterGuard(to, from, next) {
-  if (to.path === '/explorer/files' && !to.query.path) {
-    const encodedPath = encodeURIComponent('/');
-    next({ path: '/explorer/files', query: { path: encodedPath } });
-  } else {
-    next();
-  }
-}
 
 /**
  * if token is not valid and route is not login nor signup, redirect to login
@@ -59,7 +54,7 @@ function beforeEnterGuard(to, from, next) {
 router.beforeEach(async (to, from, next) => {
   try {
     const isValid = await checkTokenValidation();
-    
+
     if (!isValid && to.name !== 'login' && to.name !== 'signup') {
       next({ name: 'login' });
     } else if (isValid && (to.name === 'login' || to.name === 'signup')) {
