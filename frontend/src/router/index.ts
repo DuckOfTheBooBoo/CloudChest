@@ -13,6 +13,10 @@ const routes = [
   { path: '/signup', component: SignUp, name: 'signup' },
   {
     path: '/explorer',
+    redirect: '/explorer/files'
+  },
+  {
+    path: '/explorer',
     component: Dashboard,
     children: [
       {
@@ -34,10 +38,6 @@ const routes = [
         component: Trash
       },
     ]
-  },
-  {
-    path: '/explorer',
-    redirect: '/explorer/files'
   },
 ];
 
