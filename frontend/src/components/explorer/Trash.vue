@@ -1,12 +1,12 @@
 <script setup lang="ts">
 import { Ref, ref, onBeforeMount } from "vue";
-import { MinIOFile } from "../../models/file";
+import { CloudChestFile } from "../../models/file";
 import File from "../File.vue";
 import { getTrashCan } from "../../utils/filesApi";
 import { useEventEmitterStore } from "../../stores/eventEmitterStore";
 import { FILE_UPDATED } from "../../constants";
 
-const fileList: Ref<MinIOFile[]> = ref([] as MinIOFile[]);
+const fileList: Ref<CloudChestFile[]> = ref([] as CloudChestFile[]);
 
 const eventEmitter = useEventEmitterStore();
 

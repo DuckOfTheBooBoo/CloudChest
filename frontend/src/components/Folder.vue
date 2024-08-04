@@ -1,34 +1,27 @@
 <script setup lang="ts">
-import { ref, computed } from "vue";
+import { ref } from "vue";
 import { formatDistance } from "date-fns";
-import { fileDetailFormatter } from "../utils/fileDetailFormatter";
 import Folder from "../models/folder";
 import Filename from "./Filename.vue";
 
-const props = defineProps<{
+defineProps<{
   folder: Folder;
-  parentPath: string;
-  makeRequest: Function;
 }>();
 
-const decodedParentPath = computed(() => decodeURIComponent(props.parentPath))
-const fullPath = computed(() => decodedParentPath.value === '/' ? `/${props.folder.DirName}` : `${decodedParentPath.value}/${props.folder.DirName}`);
-const folderName = computed(() => props.folder.DirName);
+const emit = defineEmits<{
+  (e: "folderCode:change", newFolderCode: string): void
+}>();
 
 const folderDetailDialog = ref(false);
-
-function doRequest() {
-  props.makeRequest(fullPath.value);
-}
 </script>
 
 <template>
-  <v-tooltip :text="folderName" location="bottom">
+  <v-tooltip :text="folder.Name" location="bottom">
     <template v-slot:activator="{ props: tltpProps }">
-      <v-card max-width="10rem" class="pa-2 rounded-lg" hover @click="doRequest" v-bind="tltpProps">
+      <v-card max-width="10rem" class="pa-2 rounded-lg" hover @click="emit('folderCode:change', folder.Code)" v-bind="tltpProps">
         <!-- Upper part (file name and menu) -->
         <div class="tw-flex tw-flex-row tw-h-full tw-mb-3 tw-w-full tw-items-center tw-justify-between">
-          <Filename :filename="folderName" />
+          <Filename :filename="folder.Name" />
           <v-menu>
             <template v-slot:activator="{ props: menuProps }">
               <v-btn density="compact" icon="mdi-dots-vertical" variant="plain" v-bind="menuProps"></v-btn>
