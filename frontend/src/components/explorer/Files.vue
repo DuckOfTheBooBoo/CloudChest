@@ -8,7 +8,7 @@ import File from "../File.vue";
 import Folder from "../Folder.vue";
 import FolderModel from "../../models/folder";
 import { useEventEmitterStore } from "../../stores/eventEmitterStore";
-import { FILE_UPDATED } from "../../constants";
+import { FILE_UPDATED, FOLDER_UPDATED } from "../../constants";
 
 const fileList: Ref<CloudChestFile[]> = ref([] as CloudChestFile[]);
 const folderList: Ref<FolderModel[]> = ref([] as FolderModel[]);
@@ -22,6 +22,10 @@ const isFilesLoading = ref<boolean>(false);
 
 eventEmitter.eventEmitter.on(FILE_UPDATED, () => {
   fetchFiles(folderCode.value)
+})
+
+eventEmitter.eventEmitter.on(FOLDER_UPDATED, () => {
+  fetchFolders(folderCode.value)
 })
 
 // Handle back and forward navigation by watching route changes
