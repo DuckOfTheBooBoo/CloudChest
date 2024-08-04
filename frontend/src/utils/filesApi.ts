@@ -1,46 +1,28 @@
 import axios from "axios";
-import { MinIOFile, FileResponse } from "../models/file";
+import { CloudChestFile, FileResponse } from "../models/file";
 import Folder from "../models/folder";
 import { useEventEmitterStore } from "../stores/eventEmitterStore";
 import { FILE_UPDATED } from "../constants";
 
-interface FilesResponse {
-  files: FileResponse[] | null;
-  folders: Folder[] | null;
-}
-
-interface ReturnValue {
-  files: MinIOFile[];
-  folders: Folder[];
-}
-
-export async function getFilesFromPath(path: string): Promise<ReturnValue> {
-  path = path.replace('//', '/')
+export async function getFilesFromCode(folderCode: string): Promise<CloudChestFile[]> {
   try {
-    const response = await axios.get("http://localhost:3000/api/files", {
+    const response = await axios.get("http://localhost:3000/api/files/" + folderCode, {
       params: {
-        path: path,
         trashCan: false
       }
     });
-    if (response.data.hasOwnProperty("files")) {
-      const filesResponse: FilesResponse = response.data as FilesResponse;
-      const files: MinIOFile[] = filesResponse.files?.map(
-        (fileResponse) => new MinIOFile(fileResponse)
-      )!;
-      const folders = filesResponse.folders as Folder[] | null;
-      return {
-        files,
-        folders
-      } as ReturnValue;
-    }
+    const filesResponse: FileResponse[] = response.data as FileResponse[];
+    const files: CloudChestFile[] = filesResponse.map(
+      (fileResponse) => new CloudChestFile(fileResponse)
+    )!;
+    return files;
   } catch (error: any) {
     console.error(error);
   }
-  return { files: [], folders: [] } as ReturnValue;
+  return [];
 }
 
-export async function getTrashCan(): Promise<{files: MinIOFile[]}> {
+export async function getTrashCan(): Promise<{files: CloudChestFile[]}> {
   try {
     const response = await axios.get("http://localhost:3000/api/files", {
       params: {
@@ -48,14 +30,14 @@ export async function getTrashCan(): Promise<{files: MinIOFile[]}> {
         path: 'a'
       }
     });
-    return { files: response.data.files as MinIOFile[] };
+    return { files: response.data.files as CloudChestFile[] };
   } catch (error) {
     console.error(error);
   }
   return { files: [] };
 }
 
-export async function getFavoriteFiles(): Promise<{files: MinIOFile[]}> {
+export async function getFavoriteFiles(): Promise<{files: CloudChestFile[]}> {
   try {
     const response = await axios.get("http://localhost:3000/api/files", {
       params: {
@@ -63,14 +45,14 @@ export async function getFavoriteFiles(): Promise<{files: MinIOFile[]}> {
         path: 'a'
       }
     });
-    return { files: response.data.files as MinIOFile[] };
+    return { files: response.data.files as CloudChestFile[] };
   } catch (error) {
     console.error(error);
   }
   return { files: [] };
 }
 
-export async function trashFile(file: MinIOFile, isTrashFile: boolean): Promise<void> {
+export async function trashFile(file: CloudChestFile, isTrashFile: boolean): Promise<void> {
   const url: string = `http://localhost:3000/api/files/${file.ID}?trash=${isTrashFile}`;
   try {
     await axios.delete(url);
@@ -81,7 +63,7 @@ export async function trashFile(file: MinIOFile, isTrashFile: boolean): Promise<
   }
 }
 
-export async function updateFile(file: MinIOFile, isRestoreFile: boolean): Promise<boolean> {
+export async function updateFile(file: CloudChestFile, isRestoreFile: boolean): Promise<boolean> {
   const body: {FileName: string, IsFavorite: boolean, Restore: boolean} = {
     FileName: file.FileName,
     IsFavorite: file.IsFavorite,
