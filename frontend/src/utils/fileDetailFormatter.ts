@@ -1,13 +1,12 @@
-import { MinIOFile } from "../models/file";
+import { CloudChestFile } from "../models/file";
 import { format } from "date-fns";
 
-export function fileDetailFormatter(file: MinIOFile): Object {
+export function fileDetailFormatter(file: CloudChestFile): Object {
   return {
     ID: file.ID,
     "File name": file.FileName,
     "File type": file.FileType,
     "File size": humanFileSize(file.FileSize, true),
-    Location: file.StoragePath,
     "Created at": format(file.CreatedAt, "PPPppp"),
     "Updated at": format(file.UpdatedAt, "PPPppp"),
     "Deleted at": file.DeletedAt ? format(file.DeletedAt, "PPPppp") : null,
