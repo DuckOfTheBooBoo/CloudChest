@@ -100,7 +100,7 @@ console.log(route)
       <v-list-item>
         <v-menu>
           <template v-slot:activator="{ props }">
-            <v-btn class="rounded-lg mt-2" variant="tonal" block v-bind="props" :disabled="route.name != 'explorer-files'">
+            <v-btn class="rounded-lg mt-2" variant="tonal" block v-bind="props" :disabled="(route.name != 'explorer-files' && route.name != 'explorer-files-code')">
               <v-icon>mdi-plus</v-icon>
               New
             </v-btn>
