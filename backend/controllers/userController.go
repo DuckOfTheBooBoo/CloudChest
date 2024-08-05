@@ -69,9 +69,21 @@ func UserCreate(c *gin.Context) {
 		c.Status(http.StatusInternalServerError)
 		log.Println(err.Error())
 		return
+	}	
+	
+	rootFolder := models.Folder{
+		Name: "/",
 	}
-
-	user := models.User{FirstName: userBody.FirstName, LastName: userBody.LastName, Email: userBody.Email, Password: hashedPassword, MinioBucket: bucketName.String()}
+	user := models.User{
+		FirstName: userBody.FirstName,
+		LastName: userBody.LastName,
+		Email: userBody.Email,
+		Password: hashedPassword,
+		MinioBucket: bucketName.String(),
+		Folders: []*models.Folder{
+			&rootFolder,
+		},
+	}
 
 	err = db.Create(&user).Error
 

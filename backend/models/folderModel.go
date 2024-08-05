@@ -1,9 +1,20 @@
 package models
 
-import "time"
+import (
+	"gorm.io/gorm"
+)
 
 type Folder struct {
-	DirName string
-	CreatedAt time.Time
-	UpdatedAt time.Time
+	gorm.Model
+	UserID uint `gorm:"not null"`
+	ParentID *uint
+	Name string `gorm:"type:varchar(255);not null"`
+	Code string `gorm:"type:varchar(100)"`
+	ChildFolders []*Folder `gorm:"foreignKey:ParentID"`
+	Files []*File `gorm:"foreignKey:FolderID"`
+}
+
+type FolderHierarchy struct {
+	Name string `json:"name"`
+	Code string `json:"code"`
 }

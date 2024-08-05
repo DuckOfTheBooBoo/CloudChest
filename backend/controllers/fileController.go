@@ -1,19 +1,16 @@
 package controllers
 
 import (
-	"bytes"
 	"context"
-	"io"
 	"log"
 	"net/http"
-	"path/filepath"
-	"strings"
 
 	// "strings"
 	"github.com/DuckOfTheBooBoo/web-gallery-app/backend/models"
 	"github.com/DuckOfTheBooBoo/web-gallery-app/backend/utils"
 	"github.com/gin-gonic/gin"
 	"github.com/go-playground/validator/v10"
+	"github.com/gofrs/uuid/v5"
 	"github.com/minio/minio-go/v7"
 	"gorm.io/gorm"
 )
@@ -21,16 +18,9 @@ import (
 func FileList(c *gin.Context) {
 	db := c.MustGet("db").(*gorm.DB)
 	userClaim := c.MustGet("userClaims").(*utils.UserClaims)
-	path := c.Query("path")
+	folderCode := c.Param("code")
 	isTrashCan := c.DefaultQuery("trashCan", "false") == "true"
 	isFavorite := c.DefaultQuery("favorite", "false") == "true"
-
-	if path == "" {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"error": "No path provided",
-		})
-		return
-	}
 
 	var user models.User
 	err := db.First(&user, "id = ?", userClaim.ID).Error
@@ -76,48 +66,35 @@ func FileList(c *gin.Context) {
 		return
 	}
 
-	var files []models.File
-	if err := db.Where("user_id = ? AND dir_path = ?", user.ID, path).Find(&files).Error; err != nil {
-		c.Status(http.StatusInternalServerError)
-		log.Println(err.Error())
-		return
-	}
-
-	var folderChildren []models.FolderChild
-	// Generate parent and child folders
-	if err := db.Where("user_id = ? AND parent = ?", user.ID, path).Find(&folderChildren).Error; err != nil {
-		c.Status(http.StatusInternalServerError)
-		log.Println(err.Error())
-		return
-	}
-
-	var folders []models.Folder
-	for _, folderChild := range folderChildren {
-		if folderChild.Child != "" {
-			folder := models.Folder{
-				DirName:   folderChild.Child,
-				CreatedAt: folderChild.CreatedAt,
-				UpdatedAt: folderChild.UpdatedAt,
-			}
-
-			folders = append(folders, folder)
+	var parentFolder models.Folder
+	if folderCode == "" {
+		if err := db.Where("user_id = ? AND (code IS NULL OR code = '')", user.ID).First(&parentFolder).Error; err != nil {
+			c.Status(http.StatusInternalServerError)
+			log.Println(err.Error())
+			return
+		}
+	} else {
+		if err := db.Where("user_id = ? AND code = ?", user.ID, folderCode).First(&parentFolder).Error; err != nil {
+			c.Status(http.StatusInternalServerError)
+			log.Println(err.Error())
+			return
 		}
 	}
 
-	// Filter slice to match path provided by request body
-	files = utils.FilterSlice(files, func(file models.File) bool {
-		return filepath.Dir(file.StoragePath) == path
-	})
+	var files []models.File
+	if err := db.Where("user_id = ? AND folder_id = ?", user.ID, parentFolder.ID).Find(&files).Error; err != nil {
+		c.Status(http.StatusInternalServerError)
+		log.Println(err.Error())
+		return
+	}
 
-	c.JSON(http.StatusOK, gin.H{
-		"files":   files,
-		"folders": folders,
-	})
+	c.JSON(http.StatusOK, files)
 }
 
 func FileUpload(c *gin.Context) {
 	ctx := context.Background()
 	minioClient := c.MustGet("minio").(*minio.Client)
+	folderCode := c.Param("code")
 	db := c.MustGet("db").(*gorm.DB)
 	userClaim := c.MustGet("userClaims").(*utils.UserClaims)
 
@@ -143,15 +120,20 @@ func FileUpload(c *gin.Context) {
 		return
 	}
 
-	pathArray := form.Value["path"]
-	if len(pathArray) == 0 {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"error": "Invalid path",
-		})
-		return
+	var parentFolder models.Folder
+	if folderCode == "" {
+		if err := db.Where("user_id = ? AND (code IS NULL OR code = '')", user.ID).First(&parentFolder).Error; err != nil {
+			c.Status(http.StatusInternalServerError)
+			log.Println(err.Error())
+			return
+		}
+	} else {
+		if err := db.Where("user_id = ? AND code = ?", user.ID, folderCode).First(&parentFolder).Error; err != nil {
+			c.Status(http.StatusInternalServerError)
+			log.Println(err.Error())
+			return
+		}
 	}
-
-	path := pathArray[0]
 
 	if !isMultipleUploads {
 		file, err := c.FormFile("file")
@@ -162,28 +144,23 @@ func FileUpload(c *gin.Context) {
 			return
 		}
 
-		fileName := filepath.Join(path, file.Filename)
-
-		if filepath.Dir(fileName) != "" || filepath.Dir(fileName) != "/" {
-			// Create a parent dir -> child dir mapping
-			log.Println("CREATING PARENT CHILD MAP")
-			parentChildDir := utils.GenerateParentChildDir(userClaim.ID, filepath.Dir(fileName))
-
-			for _, parentChild := range parentChildDir {
-				db.Create(&parentChild)
-			}
+		fileCode, err := uuid.NewV4()
+		if err != nil {
+			c.Status(http.StatusInternalServerError)
+			log.Println(err.Error())
+			return
 		}
 
 		// UPLOAD FILE RECORD TO RDBMS
 		// Create new File record in rbdms
 		newFile := models.File{
-			UserID:      userClaim.ID,
-			FileName:    file.Filename,
-			FileSize:    uint(file.Size),
-			FileType:    file.Header.Get("Content-Type"),
-			DirPath:     filepath.Dir(fileName),
-			StoragePath: fileName,
-			IsFavorite:  false,
+			UserID:     userClaim.ID,
+			FolderID:   parentFolder.ID,
+			FileName:   file.Filename,
+			FileCode:   fileCode.String(),
+			FileSize:   uint(file.Size),
+			FileType:   file.Header.Get("Content-Type"),
+			IsFavorite: false,
 		}
 
 		err = db.Create(&newFile).Error
@@ -208,7 +185,10 @@ func FileUpload(c *gin.Context) {
 		}
 		defer uploadedFile.Close()
 
-		_, err = minioClient.PutObject(ctx, user.MinioBucket, fileName, uploadedFile, file.Size, minio.PutObjectOptions{ContentType: file.Header.Get("Content-Type")})
+		fileExt := utils.GetFileExtension(file.Filename)
+		filePath := "/" + fileCode.String() + "." + fileExt
+
+		_, err = minioClient.PutObject(ctx, user.MinioBucket, filePath, uploadedFile, file.Size, minio.PutObjectOptions{ContentType: file.Header.Get("Content-Type")})
 
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{
@@ -226,18 +206,23 @@ func FileUpload(c *gin.Context) {
 
 	files := form.File["files"]
 	var newFiles []models.File
-	baseFilePath := filepath.Dir(newFiles[0].StoragePath)
 
 	for _, file := range files {
-		fileName := filepath.Join(path, file.Filename)
+		fileCode, err := uuid.NewV4()
+		if err != nil {
+			c.Status(http.StatusInternalServerError)
+			log.Println(err.Error())
+			return
+		}
+
 		newFile := models.File{
-			UserID:      userClaim.ID,
-			FileName:    file.Filename,
-			FileSize:    uint(file.Size),
-			FileType:    file.Header.Get("Content-Type"),
-			DirPath:     filepath.Dir(fileName),
-			StoragePath: fileName,
-			IsFavorite:  false,
+			UserID:     userClaim.ID,
+			FolderID:   parentFolder.ID,
+			FileName:   file.Filename,
+			FileCode:   fileCode.String(),
+			FileSize:   uint(file.Size),
+			FileType:   file.Header.Get("Content-Type"),
+			IsFavorite: false,
 		}
 
 		newFiles = append(newFiles, newFile)
@@ -247,14 +232,17 @@ func FileUpload(c *gin.Context) {
 		uploadedFile, err := file.Open()
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{
-				"error": "Failed to open file",
+				"error": "Failed to open file " + file.Filename,
 			})
 			log.Println(err.Error())
 			return
 		}
 		defer uploadedFile.Close()
 
-		_, err = minioClient.PutObject(ctx, user.MinioBucket, fileName, uploadedFile, file.Size, minio.PutObjectOptions{ContentType: file.Header.Get("Content-Type")})
+		fileExt := utils.GetFileExtension(file.Filename)
+		filePath := "/" + fileCode.String() + "." + fileExt
+
+		_, err = minioClient.PutObject(ctx, user.MinioBucket, filePath, uploadedFile, file.Size, minio.PutObjectOptions{ContentType: file.Header.Get("Content-Type")})
 
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{
@@ -265,18 +253,8 @@ func FileUpload(c *gin.Context) {
 		}
 	}
 
-	if baseFilePath != "" || baseFilePath != "/" {
-		// Create a parent dir -> child dir mapping
-		log.Println("CREATING PARENT CHILD MAP")
-		parentChildDir := utils.GenerateParentChildDir(userClaim.ID, baseFilePath)
-
-		for _, parentChild := range parentChildDir {
-			db.Create(&parentChild)
-		}
-	}
 	// Upload newFiles to rdbms
-	err = db.Create(&newFiles).Error
-	if err != nil {
+	if err := db.Create(&newFiles).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"error": "Failed to create files",
 		})
@@ -309,20 +287,18 @@ func FileDelete(c *gin.Context) {
 
 	// Check if user wants to trash or permanently delete
 	isTrashDelete := c.DefaultQuery("trash", "true") == "true"
+	// PERMANENT DELETE
 	if !isTrashDelete {
-		err = db.Unscoped().Where("id = ? AND user_id = ?", fileID, userClaim.ID).First(&file).Error
-
-		if err != nil {
+		if err = db.Unscoped().Where("id = ? AND user_id = ?", fileID, userClaim.ID).First(&file).Error; err != nil {
 			c.JSON(http.StatusNotFound, gin.H{
 				"error": "File not found",
 			})
 			return
 		}
+		fileExt := utils.GetFileExtension(file.FileName)
 
 		// DELETE FROM MINIO
-		err = minioClient.RemoveObject(ctx, user.MinioBucket, file.StoragePath, minio.RemoveObjectOptions{})
-
-		if err != nil {
+		if err := minioClient.RemoveObject(ctx, user.MinioBucket, "/"+file.FileCode+"."+fileExt, minio.RemoveObjectOptions{}); err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{
 				"error": "Failed to delete file",
 			})
@@ -343,17 +319,15 @@ func FileDelete(c *gin.Context) {
 		return
 	}
 
-	err = db.Where("id = ? AND user_id = ?", fileID, userClaim.ID).First(&file).Error
-	if err != nil {
+	if err := db.Where("id = ? AND user_id = ?", fileID, userClaim.ID).First(&file).Error; err != nil {
 		c.JSON(http.StatusNotFound, gin.H{
 			"error": "File not found",
 		})
 		return
 	}
 
-	err = db.Delete(&file).Error
-
-	if err != nil {
+	// Soft delete the file
+	if err := db.Delete(&file).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"error": "Failed to delete file",
 		})
@@ -362,77 +336,6 @@ func FileDelete(c *gin.Context) {
 	}
 
 	c.Status(http.StatusOK)
-}
-
-func FileNewPath(c *gin.Context) {
-	ctx := context.Background()
-	db := c.MustGet("db").(*gorm.DB)
-	minioClient := c.MustGet("minio").(*minio.Client)
-	userClaim := c.MustGet("userClaims").(*utils.UserClaims)
-	path := c.DefaultQuery("path", "/")
-
-	var user models.User
-	err := db.Where("id = ?", userClaim.ID).First(&user).Error
-	if err != nil {
-		c.JSON(http.StatusNotFound, gin.H{
-			"error": "User not found",
-		})
-		return
-	}
-
-	// To create a new path, we could make empty file and upload it to the desired path, then delete it
-	emptyFile := []byte{}
-	emptyFileName := ".newPath"
-
-	reader := bytes.NewReader(emptyFile)
-
-	if _, err := io.Copy(io.Discard, reader); err != nil {
-		c.Status(http.StatusInternalServerError)
-		log.Println(err.Error())
-		return
-	}
-
-	// file path
-	emptyFilePath := filepath.Join(path, emptyFileName)
-
-	// Upload empty file
-	_, err = minioClient.PutObject(ctx, user.MinioBucket, emptyFilePath, reader, 0, minio.PutObjectOptions{ContentType: "text/plain"})
-
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"error": "Failed to create new folder",
-		})
-		log.Println(err.Error())
-		return
-	}
-
-	// Split path into parts
-	pathParts := strings.Split(path, "/")
-	// Get the latest part
-	latestPart := pathParts[len(pathParts)-1]
-	// Remove the latest part from the path
-	pathParts = pathParts[:len(pathParts)-1]
-	parentPath := strings.Join(pathParts[:], "/") 
-
-	if len(parentPath) == 0 {
-		parentPath = "/"
-	}
-
-	newFolderChildRecord := models.FolderChild{
-		UserID: user.ID,
-		Parent: parentPath,
-		Child:  latestPart,
-	}
-
-	if err := db.Create(&newFolderChildRecord).Error; err != nil {
-		c.Status(http.StatusInternalServerError)
-		log.Println(err.Error())
-		return
-	}
-
-	c.JSON(http.StatusCreated, gin.H{
-		"path": path,
-	})
 }
 
 func FileUpdate(c *gin.Context) {
@@ -450,9 +353,9 @@ func FileUpdate(c *gin.Context) {
 	}
 
 	var fileUpdateBody struct {
-		FileName   string `validate:"required"`
-		IsFavorite bool   `validate:"boolean"`
-		Restore bool `validate:"boolean"`
+		FileName   string `validate:"required" json:"file_name"`
+		IsFavorite bool   `validate:"boolean" json:"is_favorite"`
+		Restore    bool   `validate:"boolean" json:"is_restore"`
 	}
 
 	validate := validator.New()
@@ -498,11 +401,9 @@ func FileUpdate(c *gin.Context) {
 	}
 
 	if fileUpdateBody.FileName != file.FileName {
-		c.Status(http.StatusMethodNotAllowed)
-		return
+		file.FileName = fileUpdateBody.FileName
 	}
 
-	file.FileName = fileUpdateBody.FileName
 	file.IsFavorite = fileUpdateBody.IsFavorite
 
 	if fileUpdateBody.Restore {

@@ -3,17 +3,17 @@ import { ref } from "vue";
 import { formatDistance } from "date-fns";
 import { fileDetailFormatter } from "../utils/fileDetailFormatter";
 import Filename from "./Filename.vue";
-import { MinIOFile } from "../models/file";
+import { CloudChestFile } from "../models/file";
 import { trashFile, updateFile } from "../utils/filesApi";
 const props = defineProps<{
-  file: MinIOFile
+  file: CloudChestFile
 }>();
 
 const file = props.file;
 const fileDetailDialog = ref(false);
 
 async function toggleFavorite(): Promise<void> {
-  const fileCopy: MinIOFile = file;
+  const fileCopy: CloudChestFile = file;
   fileCopy.IsFavorite = !file.IsFavorite;
   const isSuccessful: boolean = await updateFile(fileCopy, false);
   if (isSuccessful) {

@@ -1,5 +1,10 @@
 export default interface Folder {
-    DirName: string;
-    CreatedAt: string;
-    UpdatedAt: string;
+    ID: number;
+    ParentID: number | null;
+    UserID: number;
+    Code: string;
+    Name: string;
+    CreatedAt: Date;
+    UpdatedAt: Date;
+    DeletedAt: Date | null;
 }

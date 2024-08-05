@@ -4,6 +4,7 @@ import { ref, mergeProps } from "vue";
 import { useRouter, useRoute } from "vue-router";
 import { useEventEmitterStore } from "../stores/eventEmitterStore"
 import { FILE_UPDATED } from "../constants"
+import { createNewFolder } from "../utils/foldersApi";
 
 const selectedNav = ref(0);
 const router = useRouter();
@@ -53,17 +54,12 @@ async function uploadFile(_: Event): Promise<void> {
 }
 
 async function newFolder(_: Event): Promise<void> {
-  try {
-    await axios.post('http://localhost:3000/api/files/path', {}, {
-      params: {path: decodeURIComponent(route.query.path as string) + "/" + newFolderName.value}
-    });
-    eventEmitter.eventEmitter.emit(FILE_UPDATED);
-  } catch (error) {
-    console.error(error);
-  } finally {
-    newFolderDialog.value = false; // end
-    newFolderName.value = null;
-  }
+  const folderCode: string = route.params.code ? route.params.code as string : '';
+  
+  await createNewFolder(folderCode, newFolderName.value as string);
+  eventEmitter.eventEmitter.emit(FILE_UPDATED);
+  newFolderDialog.value = false; // end
+  newFolderName.value = null;
 }
 
 const rules = {
@@ -100,7 +96,7 @@ console.log(route)
       <v-list-item>
         <v-menu>
           <template v-slot:activator="{ props }">
-            <v-btn class="rounded-lg mt-2" variant="tonal" block v-bind="props" :disabled="route.name != 'explorer-files'">
+            <v-btn class="rounded-lg mt-2" variant="tonal" block v-bind="props" :disabled="(route.name != 'explorer-files' && route.name != 'explorer-files-code')">
               <v-icon>mdi-plus</v-icon>
               New
             </v-btn>
