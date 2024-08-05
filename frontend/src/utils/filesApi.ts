@@ -64,10 +64,13 @@ export async function trashFile(file: CloudChestFile, isTrashFile: boolean): Pro
 }
 
 export async function updateFile(file: CloudChestFile, isRestoreFile: boolean): Promise<boolean> {
-  const body: {FileName: string, IsFavorite: boolean, Restore: boolean} = {
-    FileName: file.FileName,
-    IsFavorite: file.IsFavorite,
-    Restore: isRestoreFile,
+  const body: {
+    file_name: string,
+    is_favorite: boolean,
+    is_restore: boolean } = {
+    file_name: file.FileName,
+    is_favorite: file.IsFavorite,
+    is_restore: isRestoreFile,
   };
 
 
