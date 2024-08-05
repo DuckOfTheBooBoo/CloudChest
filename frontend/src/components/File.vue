@@ -40,9 +40,15 @@ async function pruneFile(): Promise<void> {
 <template>
   <v-tooltip :text="file.FileName" location="bottom">
     <template v-slot:activator="{ props: tltpProps }">
-      <v-card max-width="10rem" class="pa-2 rounded-lg" hover @click="" v-bind="tltpProps">
-        <!-- Upper part (file name and menu) -->
-        <div class="tw-flex tw-flex-row tw-h-full tw-mb-3 tw-w-full tw-items-center tw-justify-between">
+      <v-card :disabled="loading" :loading="loading" class="mx-auto" max-width="374" @click="" v-bind="tltpProps">
+        <template v-slot:loader="{ isActive }">
+          <v-progress-linear :active="isActive" color="deep-purple" height="4" indeterminate></v-progress-linear>
+        </template>
+
+        <v-img height="100" src="https://picsum.photos/id/11/100/60" cover alt="No thumbnail"></v-img>
+
+        <v-card-item>
+          <div class="tw-flex tw-flex-row tw-h-full tw-w-full tw-items-center tw-justify-between">
           <Filename :filename="file.FileName" />
           <v-menu>
             <template v-slot:activator="{ props }">
@@ -97,8 +103,7 @@ async function pruneFile(): Promise<void> {
                 <v-icon>mdi-delete-forever</v-icon> Prune
                 <v-dialog activator="parent" max-width="340">
                   <template v-slot:default="{ isActive }">
-                    <v-card prepend-icon="mdi-alert"
-                      text="Pruning will delete the file permanently, are you sure?"
+                    <v-card prepend-icon="mdi-alert" text="Pruning will delete the file permanently, are you sure?"
                       title="Confirmation Dialog">
                       <template v-slot:actions>
                         <v-btn class="" @click="isActive.value = false">Cancel</v-btn>
@@ -115,14 +120,10 @@ async function pruneFile(): Promise<void> {
           </v-menu>
         </div>
 
-        <div class="tw-flex tw-justify-center tw-items-center tw-mb-2 tw-w-full tw-h-16 tw-rounded-lg bg-grey-darken-3">
-          <v-icon icon="mdi-trash-can"></v-icon>
-        </div>
-
-        <!-- Bottom part (date) -->
-        <p class="text-caption">
-          {{ formatDistance(file.UpdatedAt, new Date(), { addSuffix: true }) }}
-        </p>
+          <v-card-subtitle>
+            <span class="me-1">{{ formatDistance(file.UpdatedAt, new Date(), { addSuffix: true }) }}</span>
+          </v-card-subtitle>
+        </v-card-item>
       </v-card>
     </template>
   </v-tooltip>
