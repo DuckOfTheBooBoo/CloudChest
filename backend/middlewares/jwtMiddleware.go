@@ -18,7 +18,9 @@ func JWTMiddleware() gin.HandlerFunc {
 		userClaims, err := utils.ParseToken(tokenString)
 		// Check if token is revoked (user has logged out, marking the token as invalid)
 		var token models.Token
-		db.First(&token, "token = ?", tokenString)
+		if err := db.First(&token, "token = ?", tokenString); err != nil {
+			token = models.Token{}
+		}
 
 		if err != nil || (models.Token{}) != token {
 			c.Status(http.StatusUnauthorized)

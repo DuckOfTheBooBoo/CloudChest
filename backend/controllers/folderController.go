@@ -4,6 +4,7 @@ import (
 	"errors"
 	"log"
 	"net/http"
+	"slices"
 
 	"github.com/DuckOfTheBooBoo/web-gallery-app/backend/models"
 	"github.com/DuckOfTheBooBoo/web-gallery-app/backend/utils"
@@ -20,7 +21,7 @@ func FolderList(c *gin.Context) {
 
 	var parentFolder models.Folder
 	if folderCode == "" {
-		if err := db.Where("user_id = ? AND (code IS NULL OR code = '')", userClaim.ID).Find(&parentFolder).Error; err != nil {
+		if err := db.Where("user_id = ? AND (code IS NULL OR code = '')", userClaim.ID).Preload("ChildFolders").Find(&parentFolder).Error; err != nil {
 			if errors.Is(err, gorm.ErrRecordNotFound) {
 				c.Status(http.StatusNotFound)
 				return
@@ -31,8 +32,25 @@ func FolderList(c *gin.Context) {
 			return
 		}
 
-		var subFolders []models.Folder
-		if err := db.Where("user_id = ? AND parent_id = ?", userClaim.ID, parentFolder.ID).Find(&subFolders).Error; err != nil {
+		// var subFolders []models.Folder
+		// if err := db.Where("user_id = ? AND parent_id = ?", userClaim.ID, parentFolder.ID).Preload("ChildFolders").Find(&subFolders).Error; err != nil {
+		// 	if errors.Is(err, gorm.ErrRecordNotFound) {
+		// 		c.Status(http.StatusNotFound)
+		// 		return
+		// 	}
+
+		// 	c.Status(http.StatusInternalServerError)
+		// 	log.Println(err.Error())
+		// 	return
+		// }
+
+		// c.JSON(http.StatusOK, gin.H{
+		// 	"folders": subFolders,
+		// 	"hierarchy": []string{},
+		// })
+		// return
+	} else {
+		if err := db.Where("user_id = ? AND code = ?", userClaim.ID, folderCode).Preload("ChildFolders").Find(&parentFolder).Error; err != nil {
 			if errors.Is(err, gorm.ErrRecordNotFound) {
 				c.Status(http.StatusNotFound)
 				return
@@ -42,23 +60,32 @@ func FolderList(c *gin.Context) {
 			log.Println(err.Error())
 			return
 		}
-
-		c.JSON(http.StatusOK, subFolders)
-		return
 	}
-
-	if err := db.Where("user_id = ? AND code = ?", userClaim.ID, folderCode).Preload("ChildFolders").Find(&parentFolder).Error; err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			c.Status(http.StatusNotFound)
-			return
+	// Generate hierarchy
+	var currentParent *models.Folder = &parentFolder
+	var hierarcies []models.FolderHierarchy
+	for currentParent.ParentID != nil {
+		var parent models.Folder
+		if err := db.Where("id = ?", *currentParent.ParentID).Find(&parent).Error; err != nil {
+			if errors.Is(err, gorm.ErrRecordNotFound) {
+				c.Status(http.StatusNotFound)
+				return
+			}
 		}
-
-		c.Status(http.StatusInternalServerError)
-		log.Println(err.Error())
-		return
+		folderHierarchy := models.FolderHierarchy{
+			Name: parent.Name,
+			Code: parent.Code,
+		}
+		hierarcies = append(hierarcies, folderHierarchy)
+		currentParent = &parent
 	}
+	
+	slices.Reverse(hierarcies)
 
-	c.JSON(http.StatusOK, parentFolder.ChildFolders)
+	c.JSON(http.StatusOK, gin.H{
+		"folders": parentFolder.ChildFolders,
+		"hierarchies": hierarcies,
+	})
 }
 
 func FolderCreate(c *gin.Context) {

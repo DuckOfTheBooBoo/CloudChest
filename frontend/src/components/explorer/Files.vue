@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { useRoute, useRouter } from "vue-router";
 import { watch, Ref, ref, onBeforeMount, onBeforeUnmount, onMounted } from "vue";
-import { CloudChestFile } from "../../models/file";
+import { type CloudChestFile } from "../../models/file";
 import { getFilesFromCode } from "../../utils/filesApi";
 import { getFolderList } from "../../utils/foldersApi";
 import File from "../File.vue";
@@ -9,9 +9,11 @@ import Folder from "../Folder.vue";
 import FolderModel from "../../models/folder";
 import { useEventEmitterStore } from "../../stores/eventEmitterStore";
 import { FILE_UPDATED, FOLDER_UPDATED } from "../../constants";
+import type FolderHierarchy from "../../models/folderHierarchy";
 
 const fileList: Ref<CloudChestFile[]> = ref([] as CloudChestFile[]);
 const folderList: Ref<FolderModel[]> = ref([] as FolderModel[]);
+const folderHierarchies: Ref<FolderHierarchy[]> = ref([] as FolderHierarchy[]);
 
 const eventEmitter = useEventEmitterStore();
 const route = useRoute();
@@ -28,23 +30,6 @@ eventEmitter.eventEmitter.on(FOLDER_UPDATED, () => {
   fetchFolders(folderCode.value)
 })
 
-// Handle back and forward navigation by watching route changes
-// watch(route, (newRoute, _) => {
-//   const newDecodedPath = decodeURIComponent(newRoute.query.folderCode as string);
-//   folderCode.value = newDecodedPath
-//   fetchFiles(newDecodedPath);
-// })
-
-// onBeforeUnmount(() => {
-//   window.removeEventListener('popstate', () => {});
-// });
-
-// onBeforeMount(async () => {
-//   console.log(route)
-//   folderCode.value = decodeURIComponent(route.query.folderCode as string);
-//   await fetchFiles(folderCode.value);
-// });
-
 watch(() => route.params.code, async () => {
   folderCode.value = route.params.code ? route.params.code as string : '';
   fetchFiles(folderCode.value);
@@ -58,15 +43,11 @@ onMounted(async () => {
   fetchFolders(folderCode.value);
 })
 
-// async function makeRequest(pathParam: string): Promise<void> {
-//   folderCode.value = pathParam
-//   await fetchFiles(folderCode.value)
-//   router.push({ path: '/explorer/files', query: { path: encodeURIComponent(folderCode.value) }})
-// }
-
 async function fetchFolders(folderCode: string): Promise<void> {
   isFoldersLoading.value = true;
-  folderList.value = await getFolderList(folderCode);
+  const response = await getFolderList(folderCode);
+  folderList.value = response.folders;
+  folderHierarchies.value = response.hierarchies;
   isFoldersLoading.value = false;
 }
 
@@ -82,10 +63,18 @@ function handleFolderCodeChange(newFolderCode: string) {
 </script>
 
 <template>
-  <!-- <div class="tw-min-h-1">
-    <v-progress-linear v-if="isLoading" :indeterminate="true" color="primary"></v-progress-linear>
-  </div> -->
   <v-container class="tw-flex tw-flex-col tw-gap-6">
+    <nav>
+      <span>
+        <v-btn variant="text" rounded="xl" class="text-h6" @click="router.push({ name: 'explorer-files' })">Home</v-btn>
+        <v-icon>mdi-menu-right</v-icon>
+      </span>
+      <span v-for="hierarchy in folderHierarchies" :key="hierarchy.code">
+        <v-btn variant="text" rounded="xl" class="text-h6" @click="router.push({ name: 'explorer-files-code', params: { code: hierarchy.code } })">{{ hierarchy.name }}</v-btn>
+        <v-icon>mdi-menu-right</v-icon>
+      </span>
+      
+    </nav>
     <div>
       <h1 class="tw-mb-3 tw-text-3xl">Folders</h1>
       <div class="tw-min-h-1">

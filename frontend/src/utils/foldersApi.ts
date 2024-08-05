@@ -1,17 +1,26 @@
 import axios from "axios";
-import Folder from "../models/folder";
+import type Folder from "../models/folder";
+import type FolderHierarchy from "../models/folderHierarchy";
 import { useEventEmitterStore } from "../stores/eventEmitterStore";
 import { FILE_UPDATED, FOLDER_UPDATED } from "../constants";
 
-export async function getFolderList(folderCode: string): Promise<Folder[]> {
+interface getFoldersResponse {
+    folders: Folder[];
+    hierarchies: FolderHierarchy[];
+}
+
+export async function getFolderList(folderCode: string): Promise<getFoldersResponse> {
     try {
         const response = await axios.get("http://localhost:3000/api/folders/" + folderCode);
-        return response.data as Folder[];
+        return response.data as getFoldersResponse;
     } catch (error) {
         console.error(error);
     }
 
-    return [];
+    return {
+        folders: [],
+        hierarchies: [],
+    } as getFoldersResponse;
 }
 
 export async function createNewFolder(parentFolderCode: string, folderName: string): Promise<Folder> {

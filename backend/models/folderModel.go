@@ -13,3 +13,8 @@ type Folder struct {
 	ChildFolders []*Folder `gorm:"foreignKey:ParentID"`
 	Files []*File `gorm:"foreignKey:FolderID"`
 }
+
+type FolderHierarchy struct {
+	Name string `json:"name"`
+	Code string `json:"code"`
+}
