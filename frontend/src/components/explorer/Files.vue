@@ -70,8 +70,10 @@ function handleFolderCodeChange(newFolderCode: string) {
         <v-icon>mdi-menu-right</v-icon>
       </span>
       <span v-for="hierarchy in folderHierarchies" :key="hierarchy.code">
-        <v-btn variant="text" rounded="xl" class="text-h6" @click="router.push({ name: 'explorer-files-code', params: { code: hierarchy.code } })">{{ hierarchy.name }}</v-btn>
-        <v-icon>mdi-menu-right</v-icon>
+        <span v-if="hierarchy.name !== '/'">
+          <v-btn variant="text" rounded="xl" class="text-h6" @click="router.push({ name: 'explorer-files-code', params: { code: hierarchy.code } })">{{ hierarchy.name }}</v-btn>
+          <v-icon>mdi-menu-right</v-icon>
+        </span>
       </span>
       
     </nav>
