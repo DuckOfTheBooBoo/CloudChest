@@ -63,7 +63,7 @@ func FolderList(c *gin.Context) {
 	}
 	// Generate hierarchy
 	var currentParent *models.Folder = &parentFolder
-	var hierarcies []models.FolderHierarchy
+	var hierarchies []models.FolderHierarchy
 	for currentParent.ParentID != nil {
 		var parent models.Folder
 		if err := db.Where("id = ?", *currentParent.ParentID).Find(&parent).Error; err != nil {
@@ -76,15 +76,19 @@ func FolderList(c *gin.Context) {
 			Name: parent.Name,
 			Code: parent.Code,
 		}
-		hierarcies = append(hierarcies, folderHierarchy)
+		hierarchies = append(hierarchies, folderHierarchy)
 		currentParent = &parent
 	}
 	
-	slices.Reverse(hierarcies)
+	slices.Reverse(hierarchies)
+	hierarchies = append(hierarchies, models.FolderHierarchy{
+		Name: parentFolder.Name,
+		Code: parentFolder.Code,
+	})
 
 	c.JSON(http.StatusOK, gin.H{
 		"folders": parentFolder.ChildFolders,
-		"hierarchies": hierarcies,
+		"hierarchies": hierarchies,
 	})
 }
 
