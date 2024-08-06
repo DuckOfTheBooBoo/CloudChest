@@ -40,7 +40,7 @@ async function pruneFile(): Promise<void> {
 <template>
   <v-tooltip :text="file.FileName" location="bottom">
     <template v-slot:activator="{ props: tltpProps }">
-      <v-card :disabled="loading" :loading="loading" class="mx-auto" max-width="374" @click="" v-bind="tltpProps">
+      <v-card class="mx-auto" max-width="374" @click="" v-bind="tltpProps">
         <template v-slot:loader="{ isActive }">
           <v-progress-linear :active="isActive" color="deep-purple" height="4" indeterminate></v-progress-linear>
         </template>
