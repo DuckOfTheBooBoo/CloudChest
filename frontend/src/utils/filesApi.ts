@@ -1,6 +1,6 @@
 import axios from "axios";
-import { CloudChestFile, FileResponse } from "../models/file";
-import Folder from "../models/folder";
+import { CloudChestFile, type FileResponse } from "../models/file";
+import { type PresignedURL } from "../models/presignedUrl";
 import { useEventEmitterStore } from "../stores/eventEmitterStore";
 import { FILE_UPDATED } from "../constants";
 
@@ -84,4 +84,15 @@ export async function updateFile(file: CloudChestFile, isRestoreFile: boolean): 
   }
 
   return false;
+}
+
+export async function downloadFile(fileID: number): Promise<PresignedURL> {
+  try {
+    const response = await axios.get(`http://localhost:3000/api/files/download/${fileID}`);
+    return response.data as PresignedURL;
+  } catch (error) {
+    console.error(error);
+  }
+
+  return {} as PresignedURL;
 }

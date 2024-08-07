@@ -4,7 +4,7 @@ import { formatDistance } from "date-fns";
 import { fileDetailFormatter } from "../utils/fileDetailFormatter";
 import Filename from "./Filename.vue";
 import { CloudChestFile } from "../models/file";
-import { trashFile, updateFile } from "../utils/filesApi";
+import { trashFile, updateFile, downloadFile } from "../utils/filesApi";
 const props = defineProps<{
   file: CloudChestFile
 }>();
@@ -35,6 +35,14 @@ async function pruneFile(): Promise<void> {
     console.error(error);
   }
 }
+
+async function getFileURL(): Promise<void> {
+  const resp = await downloadFile(file.ID)
+  if (resp) {
+    const downloadFileUrl: string = `${resp.Scheme}://${resp.Host}${resp.Path}?${resp.RawQuery}`;
+    window.open(downloadFileUrl, '_blank');
+  }
+}
 </script>
 
 <template>
@@ -55,7 +63,7 @@ async function pruneFile(): Promise<void> {
               <v-btn density="compact" icon="mdi-dots-vertical" variant="plain" v-bind="props"></v-btn>
             </template>
             <v-list>
-              <v-list-item @click="console.log('Download')">
+              <v-list-item @click="getFileURL">
                 <v-icon>mdi-download</v-icon> Download
               </v-list-item>
               <v-list-item @click="() => { }">

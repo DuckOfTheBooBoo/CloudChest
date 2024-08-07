@@ -82,12 +82,18 @@ function handleFolderCodeChange(newFolderCode: string) {
       <div class="tw-min-h-1">
         <v-progress-linear v-if="isFoldersLoading" :indeterminate="true" color="primary"></v-progress-linear>
       </div>
-      <v-row>
-        <v-col v-for="folder in folderList" :key="folder" :cols="2">
-          <Folder :folder="folder" :parent-path="decodeURIComponent(folderCode)"
-            @folder-code:change="handleFolderCodeChange" />
-        </v-col>
-      </v-row>
+      <v-item-group multiple>
+        <v-container>
+          <v-row>
+            <v-col v-for="folder in folderList" :key="folder" :cols="2">
+              <v-item v-slot="{ isSelected, toggle }">
+                <Folder :folder="folder" :parent-path="decodeURIComponent(folderCode)"
+                  @folder-code:change="handleFolderCodeChange" :is-selected="isSelected" @click="toggle" />
+              </v-item>
+            </v-col>
+          </v-row>
+        </v-container>
+      </v-item-group>
     </div>
     <div>
       <h1 class="tw-mb-3 tw-text-3xl">Files</h1>
