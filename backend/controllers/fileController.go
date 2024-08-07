@@ -2,10 +2,13 @@ package controllers
 
 import (
 	"context"
+	"errors"
 	"log"
 	"net/http"
+	"net/url"
+	"strings"
+	"time"
 
-	// "strings"
 	"github.com/DuckOfTheBooBoo/web-gallery-app/backend/models"
 	"github.com/DuckOfTheBooBoo/web-gallery-app/backend/utils"
 	"github.com/gin-gonic/gin"
@@ -14,6 +17,8 @@ import (
 	"github.com/minio/minio-go/v7"
 	"gorm.io/gorm"
 )
+
+// "strings"
 
 func FileList(c *gin.Context) {
 	db := c.MustGet("db").(*gorm.DB)
@@ -185,8 +190,7 @@ func FileUpload(c *gin.Context) {
 		}
 		defer uploadedFile.Close()
 
-		fileExt := utils.GetFileExtension(file.Filename)
-		filePath := "/" + fileCode.String() + "." + fileExt
+		filePath := "/" + fileCode.String()
 
 		_, err = minioClient.PutObject(ctx, user.MinioBucket, filePath, uploadedFile, file.Size, minio.PutObjectOptions{ContentType: file.Header.Get("Content-Type")})
 
@@ -239,8 +243,7 @@ func FileUpload(c *gin.Context) {
 		}
 		defer uploadedFile.Close()
 
-		fileExt := utils.GetFileExtension(file.Filename)
-		filePath := "/" + fileCode.String() + "." + fileExt
+		filePath := "/" + fileCode.String()
 
 		_, err = minioClient.PutObject(ctx, user.MinioBucket, filePath, uploadedFile, file.Size, minio.PutObjectOptions{ContentType: file.Header.Get("Content-Type")})
 
@@ -295,10 +298,9 @@ func FileDelete(c *gin.Context) {
 			})
 			return
 		}
-		fileExt := utils.GetFileExtension(file.FileName)
 
 		// DELETE FROM MINIO
-		if err := minioClient.RemoveObject(ctx, user.MinioBucket, "/"+file.FileCode+"."+fileExt, minio.RemoveObjectOptions{}); err != nil {
+		if err := minioClient.RemoveObject(ctx, user.MinioBucket, "/"+file.FileCode, minio.RemoveObjectOptions{}); err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{
 				"error": "Failed to delete file",
 			})
@@ -427,4 +429,62 @@ func FileUpdate(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{
 		"file": file,
 	})
+}
+
+func FileDownload(c *gin.Context) {
+	ctx := context.Background()
+	minioClient := c.MustGet("minio").(*minio.Client)
+	fileID := c.Param("fileID")
+	db := c.MustGet("db").(*gorm.DB)
+	userClaim := c.MustGet("userClaims").(*utils.UserClaims)
+
+	// Get user bucket name
+	var user models.User
+	if err := db.Where("id = ?", userClaim.ID).First(&user).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			c.JSON(http.StatusNotFound, gin.H{
+				"error": "User not found",
+			})
+			return
+		}
+
+		c.Status(http.StatusInternalServerError)
+		log.Println(err.Error())
+		return
+	}
+
+	// Get file
+	var file models.File
+	if err := db.Where("id = ? AND user_id = ?", fileID, user.ID).First(&file).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			c.JSON(http.StatusNotFound, gin.H{
+				"error": "File not found",
+			})
+			return
+		}
+
+		c.Status(http.StatusInternalServerError)
+		log.Println(err.Error())
+		return
+	}
+
+	reqParams := make(url.Values)
+	reqParams.Set("response-content-disposition", "attachment; filename=\""+file.FileName+"\"")
+
+	charsetParam := ""
+	if strings.HasPrefix(file.FileType, "text/") {
+		charsetParam = "; charset=utf-8"
+	}
+
+	reqParams.Set("response-content-type", file.FileType+charsetParam)
+
+	presignedURL, err := minioClient.PresignedGetObject(ctx, user.MinioBucket, file.FileCode, time.Second*24*60*60, reqParams)
+
+	if err != nil {
+		c.Status(http.StatusInternalServerError)
+		log.Println(err.Error())
+		return
+	}
+
+	c.JSON(http.StatusOK, presignedURL)
 }
