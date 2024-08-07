@@ -21,7 +21,7 @@ func main() {
 
 	gormDB := db.GetDB()
 
-	migErr := gormDB.AutoMigrate(&models.User{}, &models.Token{}, &models.Folder{}, &models.File{})
+	migErr := gormDB.AutoMigrate(&models.User{}, &models.Token{}, &models.Folder{}, &models.File{}, &models.Thumbnail{})
 
 	if migErr != nil {
 		log.Fatal(migErr)

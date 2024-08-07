@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/DuckOfTheBooBoo/web-gallery-app/backend/jobs"
 	"github.com/DuckOfTheBooBoo/web-gallery-app/backend/models"
 	"github.com/DuckOfTheBooBoo/web-gallery-app/backend/utils"
 	"github.com/gin-gonic/gin"
@@ -200,6 +201,10 @@ func FileUpload(c *gin.Context) {
 			})
 			log.Println(err.Error())
 			return
+		}
+
+		if strings.HasPrefix(newFile.FileType, "image/") {
+			go jobs.GenerateThumbnail(ctx, minioClient, db, newFile, user.MinioBucket)
 		}
 
 		c.JSON(http.StatusCreated, gin.H{
