@@ -6,7 +6,7 @@ import { FILE_UPDATED } from "../constants";
 
 export async function getFilesFromCode(folderCode: string): Promise<CloudChestFile[]> {
   try {
-    const response = await axios.get("http://localhost:3000/api/files/" + folderCode, {
+    const response = await axios.get("/api/files/" + folderCode, {
       params: {
         trashCan: false
       }
@@ -24,7 +24,7 @@ export async function getFilesFromCode(folderCode: string): Promise<CloudChestFi
 
 export async function getTrashCan(): Promise<{files: CloudChestFile[]}> {
   try {
-    const response = await axios.get("http://localhost:3000/api/files", {
+    const response = await axios.get("/api/files", {
       params: {
         trashCan: true,
         path: 'a'
@@ -39,7 +39,7 @@ export async function getTrashCan(): Promise<{files: CloudChestFile[]}> {
 
 export async function getFavoriteFiles(): Promise<{files: CloudChestFile[]}> {
   try {
-    const response = await axios.get("http://localhost:3000/api/files", {
+    const response = await axios.get("/api/files", {
       params: {
         favorite: true,
         path: 'a'
@@ -53,7 +53,7 @@ export async function getFavoriteFiles(): Promise<{files: CloudChestFile[]}> {
 }
 
 export async function trashFile(file: CloudChestFile, isTrashFile: boolean): Promise<void> {
-  const url: string = `http://localhost:3000/api/files/${file.ID}?trash=${isTrashFile}`;
+  const url: string = `/api/files/${file.ID}?trash=${isTrashFile}`;
   try {
     await axios.delete(url);
     const eventEmitter = useEventEmitterStore();
@@ -75,7 +75,7 @@ export async function updateFile(file: CloudChestFile, isRestoreFile: boolean): 
 
 
   try {
-    await axios.put(`http://localhost:3000/api/files/${file.ID}`, body);
+    await axios.put(`/api/files/${file.ID}`, body);
     const eventEmitter = useEventEmitterStore();
     eventEmitter.eventEmitter.emit(FILE_UPDATED);
     return true;
@@ -88,7 +88,7 @@ export async function updateFile(file: CloudChestFile, isRestoreFile: boolean): 
 
 export async function downloadFile(fileID: number): Promise<PresignedURL> {
   try {
-    const response = await axios.get(`http://localhost:3000/api/files/download/${fileID}`);
+    const response = await axios.get(`/api/files/download/${fileID}`);
     return response.data as PresignedURL;
   } catch (error) {
     console.error(error);

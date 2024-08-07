@@ -51,7 +51,7 @@ const submit = handleSubmit(async (values) => {
   try {
     loading.value = true;
     const response = await axios.post<TokenResponse>(
-      "http://localhost:3000/api/users/login",
+      "/api/users/login",
       body
     );
     if (response.status == 200) {

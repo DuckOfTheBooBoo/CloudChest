@@ -2,7 +2,7 @@ import axios from "axios";
 
 export default async function checkTokenValidation(): Promise<boolean> {
     try {
-        const response = await axios.post('http://localhost:3000/api/token/check');
+        const response = await axios.post('/api/token/check');
         if (response.status == 200) {
             return true;
         }

@@ -22,7 +22,7 @@ const newFolderDialogActivator = ref(undefined);
 
 async function logout(): Promise<void> {
   try {
-    const response = await axios.post("http://localhost:3000/api/users/logout");
+    const response = await axios.post("/api/users/logout");
 
     if (response.status == 201) {
       localStorage.removeItem("token");
@@ -40,7 +40,7 @@ async function logout(): Promise<void> {
 
 async function uploadFile(_: Event): Promise<void> {
   try {
-    await axios.postForm('http://localhost:3000/api/files?multiple=false', {
+    await axios.postForm('/api/files?multiple=false', {
       file: file.value as File,
       path: decodeURIComponent(route.query.path as string)
     });

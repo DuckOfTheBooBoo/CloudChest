@@ -67,7 +67,7 @@ const submit = handleSubmit(async (values) => {
   try {
     loading.value = true;
     const response = await axios.post(
-      "http://localhost:3000/api/users/register",
+      "/api/users/register",
       body
     );
 
