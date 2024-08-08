@@ -493,3 +493,73 @@ func FileDownload(c *gin.Context) {
 
 	c.JSON(http.StatusOK, presignedURL)
 }
+
+func FileThumbnail(c *gin.Context) {
+	ctx := context.Background()
+	minioClient := c.MustGet("minio").(*minio.Client)
+	fileID := c.Param("fileID")
+	db := c.MustGet("db").(*gorm.DB)
+	userClaim := c.MustGet("userClaims").(*utils.UserClaims)
+
+	// Get user bucket name
+	var user models.User
+	if err := db.Where("id = ?", userClaim.ID).First(&user).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			c.JSON(http.StatusNotFound, gin.H{
+				"error": "User not found",
+			})
+			return
+		}
+
+		c.Status(http.StatusInternalServerError)
+		log.Println(err.Error())
+		return
+	}
+
+	// Get file
+	var file models.File
+	if err := db.Where("id = ? AND user_id = ?", fileID, user.ID).Preload("Thumbnail").First(&file).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			c.JSON(http.StatusNotFound, gin.H{
+				"error": "File not found",
+			})
+			return
+		}
+
+		c.Status(http.StatusInternalServerError)
+		log.Println(err.Error())
+		return
+	}
+
+	if file.Thumbnail == nil {
+		if strings.HasPrefix(file.FileType, "image/") {
+			c.JSON(http.StatusAccepted, gin.H{
+				"message": "File's thumbnail is being processed",
+			})
+		} else {
+			c.JSON(http.StatusBadRequest, gin.H{
+				"error": "File is not an image or a video",
+			})
+		}
+		return
+	}
+
+	thumbnail, err := minioClient.GetObject(ctx, user.MinioBucket, file.Thumbnail.FilePath, minio.GetObjectOptions{})
+	if err != nil {
+		c.Status(http.StatusInternalServerError)
+		log.Println(err.Error())
+		return
+	}
+	defer thumbnail.Close()
+
+	// Read thumbnail's info
+	info, err := thumbnail.Stat()
+	if err != nil {
+		c.Status(http.StatusInternalServerError)
+		log.Println(err.Error())
+		return
+	}
+
+
+	c.DataFromReader(http.StatusOK, info.Size, info.ContentType, thumbnail, nil)
+}

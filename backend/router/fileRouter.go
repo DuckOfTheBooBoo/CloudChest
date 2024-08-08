@@ -13,6 +13,7 @@ func FileRoutes(route *gin.RouterGroup) {
 		
 		// Get all files inside a folder by code
 		file.GET("/:code", middlewares.JWTMiddleware(), controllers.FileList)
+		file.GET("/thumbnail/:fileID", middlewares.JWTMiddleware(), controllers.FileThumbnail)
 		file.GET("/download/:fileID", middlewares.JWTMiddleware(), controllers.FileDownload)
 		file.POST("", middlewares.JWTMiddleware(), controllers.FileUpload)
 		file.POST("/:code", middlewares.JWTMiddleware(), controllers.FileUpload)
