@@ -9,14 +9,9 @@ import (
 func FileRoutes(route *gin.RouterGroup) {
 	file := route.Group("/files") 
 	{	
-		file.GET("", middlewares.JWTMiddleware(), controllers.FileList)
-		
-		// Get all files inside a folder by code
-		file.GET("/:code", middlewares.JWTMiddleware(), controllers.FileList)
-		file.GET("/thumbnail/:fileID", middlewares.JWTMiddleware(), controllers.FileThumbnail)
-		file.GET("/download/:fileID", middlewares.JWTMiddleware(), controllers.FileDownload)
-		file.POST("", middlewares.JWTMiddleware(), controllers.FileUpload)
-		file.POST("/:code", middlewares.JWTMiddleware(), controllers.FileUpload)
+		file.GET("", middlewares.JWTMiddleware(), controllers.FileList) // Only for favorites and trashcan
+		file.GET("/:fileID/thumbnail", middlewares.JWTMiddleware(), controllers.FileThumbnail)
+		file.GET("/:fileID/download", middlewares.JWTMiddleware(), controllers.FileDownload)
 		file.PUT("/:fileID", middlewares.JWTMiddleware(), controllers.FileUpdate)
 		file.DELETE("/:fileID", middlewares.JWTMiddleware(), controllers.FileDelete)
 	}
