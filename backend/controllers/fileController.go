@@ -64,7 +64,6 @@ func FileList(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{
 		"files": trashedFiles,
 	})
-	return
 }
 
 func FileDelete(c *gin.Context) {
@@ -89,11 +88,26 @@ func FileDelete(c *gin.Context) {
 	isTrashDelete := c.DefaultQuery("trash", "true") == "true"
 	// PERMANENT DELETE
 	if !isTrashDelete {
-		if err = db.Unscoped().Where("id = ? AND user_id = ?", fileID, userClaim.ID).First(&file).Error; err != nil {
+		if err = db.Unscoped().Where("id = ? AND user_id = ?", fileID, userClaim.ID).Preload("Thumbnail").First(&file).Error; err != nil {
 			c.JSON(http.StatusNotFound, gin.H{
 				"error": "File not found",
 			})
 			return
+		}
+
+		if file.Thumbnail != nil || (file.Thumbnail != &models.Thumbnail{}) {
+			// DELETE FROM MINIO
+			if err := minioClient.RemoveObject(ctx, user.MinioBucket, file.Thumbnail.FilePath, minio.RemoveObjectOptions{}); err != nil {
+				c.Status(http.StatusInternalServerError)
+				log.Println("Failed to delete thumbnail from MinIO: ", err.Error())
+				return
+			}
+
+			if err := db.Unscoped().Model(&file).Association("Thumbnail").Unscoped().Clear(); err != nil {
+				c.Status(http.StatusInternalServerError)
+				log.Println("Failed to delete thumbnail from database: ", err.Error())
+				return
+			}
 		}
 
 		// DELETE FROM MINIO
