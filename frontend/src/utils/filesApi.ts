@@ -93,3 +93,25 @@ export async function downloadFile(fileID: number): Promise<PresignedURL> {
 
   return {} as PresignedURL;
 }
+
+export async function getThumbnailBase64(fileID: number): Promise<string> {
+  try {
+    const imgData = await axios.get(`/api/files/${fileID}/thumbnail`, {
+      responseType: 'arraybuffer'
+    });
+
+    const base64 = btoa(
+      new Uint8Array(imgData.data).reduce(
+        (data, byte) => data + String.fromCharCode(byte),
+        ''
+      )
+    );
+
+    const dataURL = `data:${imgData.headers['content-type']};base64,${base64}`;
+    return dataURL;
+  } catch (error) {
+    console.error(error);
+  }
+
+  return '';
+}

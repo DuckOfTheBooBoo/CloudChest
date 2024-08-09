@@ -1,16 +1,17 @@
 <script setup lang="ts">
-import { ref } from "vue";
+import { ref, onMounted } from "vue";
 import { formatDistance } from "date-fns";
 import { fileDetailFormatter } from "../utils/fileDetailFormatter";
 import Filename from "./Filename.vue";
 import { CloudChestFile } from "../models/file";
-import { trashFile, updateFile, downloadFile } from "../utils/filesApi";
+import { trashFile, updateFile, downloadFile, getThumbnailBase64 } from "../utils/filesApi";
 const props = defineProps<{
   file: CloudChestFile
 }>();
 
 const file = props.file;
 const fileDetailDialog = ref(false);
+const thumbnailBase64 = ref<string>('data:image/jpeg;base64,');
 
 async function toggleFavorite(): Promise<void> {
   const fileCopy: CloudChestFile = file;
@@ -43,6 +44,10 @@ async function getFileURL(): Promise<void> {
     window.open(downloadFileUrl, '_blank');
   }
 }
+
+onMounted(async () => {
+  thumbnailBase64.value = await getThumbnailBase64(file.ID);
+});
 </script>
 
 <template>
@@ -53,7 +58,7 @@ async function getFileURL(): Promise<void> {
           <v-progress-linear :active="isActive" color="deep-purple" height="4" indeterminate></v-progress-linear>
         </template>
 
-        <v-img height="100" src="https://picsum.photos/id/11/100/60" cover alt="No thumbnail"></v-img>
+        <v-img height="100" :src="thumbnailBase64" cover alt="No thumbnail"></v-img>
 
         <v-card-item>
           <div class="tw-flex tw-flex-row tw-h-full tw-w-full tw-items-center tw-justify-between">
