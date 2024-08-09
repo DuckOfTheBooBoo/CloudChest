@@ -39,10 +39,10 @@ async function logout(): Promise<void> {
 }
 
 async function uploadFile(_: Event): Promise<void> {
+  const folderCode: string = route.params.code ? route.params.code as string : 'root';
   try {
-    await axios.postForm('/api/files?multiple=false', {
+    await axios.postForm(`/api/folders/${folderCode}/files`, {
       file: file.value as File,
-      path: decodeURIComponent(route.query.path as string)
     });
     eventEmitter.eventEmitter.emit(FILE_UPDATED);
   } catch (error) {
@@ -54,7 +54,7 @@ async function uploadFile(_: Event): Promise<void> {
 }
 
 async function newFolder(_: Event): Promise<void> {
-  const folderCode: string = route.params.code ? route.params.code as string : '';
+  const folderCode: string = route.params.code ? route.params.code as string : 'root';
   
   await createNewFolder(folderCode, newFolderName.value as string);
   eventEmitter.eventEmitter.emit(FILE_UPDATED);
