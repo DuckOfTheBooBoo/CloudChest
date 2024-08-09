@@ -95,7 +95,7 @@ func FileDelete(c *gin.Context) {
 			return
 		}
 
-		if file.Thumbnail != nil || (file.Thumbnail != &models.Thumbnail{}) {
+		if file.Thumbnail != nil {
 			// DELETE FROM MINIO
 			if err := minioClient.RemoveObject(ctx, user.MinioBucket, file.Thumbnail.FilePath, minio.RemoveObjectOptions{}); err != nil {
 				c.Status(http.StatusInternalServerError)
