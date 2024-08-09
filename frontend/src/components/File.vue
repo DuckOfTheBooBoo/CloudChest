@@ -13,6 +13,47 @@ const file = props.file;
 const fileDetailDialog = ref(false);
 const thumbnailBase64 = ref<string>('data:image/jpeg;base64,');
 
+interface MimeTypeToCategoryMap {
+  [mimeType: string]: string;
+}
+
+const mimeTypeToCategoryMap: MimeTypeToCategoryMap = {
+  // Documents
+  'application/msword': 'document',
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document': 'document',
+  'application/pdf': 'document',
+  'text/plain': 'document',
+  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': 'document',
+  'application/vnd.openxmlformats-officedocument.presentationml.presentation':'document',
+
+  // Audio
+  'audio/mpeg': 'audio',
+  'audio/wav': 'audio',
+  'audio/mp4': 'audio',
+  'audio/ogg': 'audio',
+
+  // Archives
+  'application/zip': 'archive',
+  'application/x-rar-compressed': 'archive',
+  'application/x-7z-compressed': 'archive',
+
+  // Fonts
+  'font/ttf': 'font',
+  'font/woff': 'font',
+  'font/woff2': 'font',
+
+  // Other
+  'application/octet-stream': 'other', // Generic binary data
+};
+
+const categoryToMDIIcon: {[categoryName: string]: string} = {
+  'document': 'mdi-file-document-outline',
+  'audio': 'mdi-music-note',
+  'font': 'mdi-format-font',
+  'archive': 'mdi-bookshelf',
+  'other': 'mdi-file-outline',
+}
+
 async function toggleFavorite(): Promise<void> {
   const fileCopy: CloudChestFile = file;
   fileCopy.IsFavorite = !file.IsFavorite;
@@ -58,7 +99,10 @@ onMounted(async () => {
           <v-progress-linear :active="isActive" color="deep-purple" height="4" indeterminate></v-progress-linear>
         </template>
 
-        <v-img height="100" :src="thumbnailBase64" cover alt="No thumbnail"></v-img>
+        <div class="tw-h-[100px] tw-flex tw-items-center tw-justify-center tw-text-4xl" v-if="!file.FileType.includes('image/') && !file.FileType.includes('video/')">
+          <v-icon>{{ categoryToMDIIcon[mimeTypeToCategoryMap[file.FileType]] }}</v-icon>
+        </div>
+        <v-img v-else height="100" :src="thumbnailBase64" cover alt="No thumbnail"></v-img>
 
         <v-card-item>
           <div class="tw-flex tw-flex-row tw-h-full tw-w-full tw-items-center tw-justify-between">
