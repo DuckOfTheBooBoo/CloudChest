@@ -11,7 +11,7 @@ interface getFoldersResponse {
 
 export async function getFolderList(folderCode: string): Promise<getFoldersResponse> {
     try {
-        const response = await axios.get("/api/folders/" + folderCode);
+        const response = await axios.get(`/api/folders/${folderCode}/folders`);
         return response.data as getFoldersResponse;
     } catch (error) {
         console.error(error);
@@ -25,7 +25,7 @@ export async function getFolderList(folderCode: string): Promise<getFoldersRespo
 
 export async function createNewFolder(parentFolderCode: string, folderName: string): Promise<Folder> {
     try {
-        const response = await axios.post("/api/folders/" + parentFolderCode, {
+        const response = await axios.post(`/api/folders/${parentFolderCode}/folders`, {
             "folder_name": folderName,
         });
         const folder: Folder = response.data as Folder;

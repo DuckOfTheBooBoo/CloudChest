@@ -6,7 +6,7 @@ import { FILE_UPDATED } from "../constants";
 
 export async function getFilesFromCode(folderCode: string): Promise<CloudChestFile[]> {
   try {
-    const response = await axios.get("/api/files/" + folderCode, {
+    const response = await axios.get(`/api/folders/${folderCode}/files`, {
       params: {
         trashCan: false
       }
@@ -26,8 +26,7 @@ export async function getTrashCan(): Promise<{files: CloudChestFile[]}> {
   try {
     const response = await axios.get("/api/files", {
       params: {
-        trashCan: true,
-        path: 'a'
+        trashCan: true
       }
     });
     return { files: response.data.files as CloudChestFile[] };
@@ -42,7 +41,6 @@ export async function getFavoriteFiles(): Promise<{files: CloudChestFile[]}> {
     const response = await axios.get("/api/files", {
       params: {
         favorite: true,
-        path: 'a'
       }
     });
     return { files: response.data.files as CloudChestFile[] };
@@ -73,7 +71,6 @@ export async function updateFile(file: CloudChestFile, isRestoreFile: boolean): 
     is_restore: isRestoreFile,
   };
 
-
   try {
     await axios.put(`/api/files/${file.ID}`, body);
     const eventEmitter = useEventEmitterStore();
@@ -88,7 +85,7 @@ export async function updateFile(file: CloudChestFile, isRestoreFile: boolean): 
 
 export async function downloadFile(fileID: number): Promise<PresignedURL> {
   try {
-    const response = await axios.get(`/api/files/download/${fileID}`);
+    const response = await axios.get(`/api/files/${fileID}/download`);
     return response.data as PresignedURL;
   } catch (error) {
     console.error(error);

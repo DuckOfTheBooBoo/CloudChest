@@ -18,7 +18,7 @@ const folderHierarchies: Ref<FolderHierarchy[]> = ref([] as FolderHierarchy[]);
 const eventEmitter = useEventEmitterStore();
 const route = useRoute();
 const router = useRouter();
-const folderCode = ref('');
+const folderCode = ref('root');
 const isFoldersLoading = ref<boolean>(false);
 const isFilesLoading = ref<boolean>(false);
 
@@ -31,14 +31,14 @@ eventEmitter.eventEmitter.on(FOLDER_UPDATED, () => {
 })
 
 watch(() => route.params.code, async () => {
-  folderCode.value = route.params.code ? route.params.code as string : '';
+  folderCode.value = route.params.code ? route.params.code as string : 'root';
   fetchFiles(folderCode.value);
   fetchFolders(folderCode.value);
 }, { immediate: true })
 
 
 onMounted(async () => {
-  folderCode.value = route.params.code ? route.params.code as string : '';
+  folderCode.value = route.params.code ? route.params.code as string : 'root';
   fetchFiles(folderCode.value);
   fetchFolders(folderCode.value);
 })
