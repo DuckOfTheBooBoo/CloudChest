@@ -16,6 +16,7 @@ const newFolderName = ref<string | null>(null);
 const overlayVisible = ref<boolean>(false);
 const selectedFile = ref<CloudChestFile | null>(null);
 const fileURL = ref<string | null>(null);
+const previewable = ref<boolean>(false);
 
 const eventEmitter = useEventEmitterStore();
 
@@ -84,8 +85,16 @@ async function getFileURL(): Promise<string> {
 function handleFileChange(file: CloudChestFile): void {
   overlayVisible.value = true;
   selectedFile.value = file;
+  previewable.value = file.FileType.includes('image/') || file.FileType.includes('video/');
 
   getFileURL().then(url => fileURL.value = url)
+}
+
+function handlePreviewClose(): void {
+  overlayVisible.value = false;
+  selectedFile.value = null;
+  fileURL.value = null;
+  previewable.value = false;
 }
 
 </script>
@@ -99,23 +108,20 @@ function handleFileChange(file: CloudChestFile): void {
 
         <v-spacer></v-spacer>
 
-        <v-btn @click="() => {
-          overlayVisible = false;
-          selectedFile = null;
-          fileURL = null;
-        }" icon>
+        <v-btn @click="handlePreviewClose" icon>
           <v-icon>mdi-close</v-icon>
         </v-btn>
       </v-toolbar>
     
       <div class="tw-py-6 tw-flex tw-justify-center tw-items-center tw-drop-shadow-xl">
-        <v-img :src="fileURL" class="tw-h-[calc(100dvh-100px)]">
+        <v-img v-if="previewable" :src="fileURL" class="tw-h-[calc(100dvh-100px)]">
           <template v-slot:placeholder>
             <div class="d-flex align-center justify-center fill-height">
               <v-progress-circular color="grey-lighten-4" indeterminate></v-progress-circular>
             </div>
           </template>
         </v-img>
+        <p v-else class="tw-text-2xl">This file is does not have a preview.</p>
       </div>
 
     </v-overlay>
