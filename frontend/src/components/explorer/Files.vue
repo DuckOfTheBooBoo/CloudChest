@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { useRoute, useRouter } from "vue-router";
-import { watch, Ref, ref, onBeforeMount, onBeforeUnmount, onMounted } from "vue";
+import { watch, Ref, ref, onMounted } from "vue";
 import { type CloudChestFile } from "../../models/file";
 import { getFilesFromCode } from "../../utils/filesApi";
 import { getFolderList } from "../../utils/foldersApi";
@@ -10,6 +10,10 @@ import FolderModel from "../../models/folder";
 import { useEventEmitterStore } from "../../stores/eventEmitterStore";
 import { FILE_UPDATED, FOLDER_UPDATED } from "../../constants";
 import type FolderHierarchy from "../../models/folderHierarchy";
+
+const emit = defineEmits<{
+  (e: "file:select", file: CloudChestFile): void
+}>();
 
 const fileList: Ref<CloudChestFile[]> = ref([] as CloudChestFile[]);
 const folderList: Ref<FolderModel[]> = ref([] as FolderModel[]);
@@ -102,7 +106,7 @@ function handleFolderCodeChange(newFolderCode: string) {
       </div>
       <v-row>
         <v-col v-for="file in fileList" :key="file" :cols="2">
-          <File :file="file" />
+          <File :file="file" @dblclick="emit('file:select', file)" />
         </v-col>
       </v-row>
     </div>

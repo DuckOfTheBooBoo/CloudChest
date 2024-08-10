@@ -9,6 +9,10 @@ const props = defineProps<{
   file: CloudChestFile
 }>();
 
+const emit = defineEmits<{
+  (e: "dblclick"): void
+}>();
+
 const file = props.file;
 const fileDetailDialog = ref(false);
 const thumbnailBase64 = ref<string>('data:image/jpeg;base64,');
@@ -34,6 +38,7 @@ const mimeTypeToCategoryMap: MimeTypeToCategoryMap = {
 
   // Archives
   'application/zip': 'archive',
+  'application/x-zip-compressed': 'archive',
   'application/x-rar-compressed': 'archive',
   'application/x-7z-compressed': 'archive',
 
@@ -87,14 +92,16 @@ async function getFileURL(): Promise<void> {
 }
 
 onMounted(async () => {
-  thumbnailBase64.value = await getThumbnailBase64(file.ID);
+  if (file.FileType.includes('image/') || file.FileType.includes('video/')) {
+    thumbnailBase64.value = await getThumbnailBase64(file.ID);
+  }
 });
 </script>
 
 <template>
   <v-tooltip :text="file.FileName" location="bottom">
     <template v-slot:activator="{ props: tltpProps }">
-      <v-card class="mx-auto" max-width="374" @click="" v-bind="tltpProps">
+      <v-card class="mx-auto" max-width="374" @dblclick="emit('dblclick')" @click="" v-bind="tltpProps">
         <template v-slot:loader="{ isActive }">
           <v-progress-linear :active="isActive" color="deep-purple" height="4" indeterminate></v-progress-linear>
         </template>

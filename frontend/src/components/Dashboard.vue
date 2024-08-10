@@ -5,12 +5,17 @@ import { useRouter, useRoute } from "vue-router";
 import { useEventEmitterStore } from "../stores/eventEmitterStore"
 import { FILE_UPDATED } from "../constants"
 import { createNewFolder } from "../utils/foldersApi";
+import { CloudChestFile } from "../models/file";
+import { downloadFile } from "../utils/filesApi";
 
 const selectedNav = ref(0);
 const router = useRouter();
 const route = useRoute();
 const file = ref<File | null>(null);
 const newFolderName = ref<string | null>(null);
+const overlayVisible = ref<boolean>(false);
+const selectedFile = ref<CloudChestFile | null>(null);
+const fileURL = ref<string | null>(null);
 
 const eventEmitter = useEventEmitterStore();
 
@@ -55,7 +60,7 @@ async function uploadFile(_: Event): Promise<void> {
 
 async function newFolder(_: Event): Promise<void> {
   const folderCode: string = route.params.code ? route.params.code as string : 'root';
-  
+
   await createNewFolder(folderCode, newFolderName.value as string);
   eventEmitter.eventEmitter.emit(FILE_UPDATED);
   newFolderDialog.value = false; // end
@@ -65,28 +70,68 @@ async function newFolder(_: Event): Promise<void> {
 const rules = {
   required: (value: string) => !!value || 'Field is required',
 };
-console.log(route)
-</script> 
+
+async function getFileURL(): Promise<string> {
+  const resp = await downloadFile(selectedFile.value!.ID)
+  if (resp) {
+    const downloadFileUrl: string = `${resp.Scheme}://${resp.Host}${resp.Path}?${resp.RawQuery}`;
+    return downloadFileUrl
+  }
+
+  return '';
+}
+
+function handleFileChange(file: CloudChestFile): void {
+  overlayVisible.value = true;
+  selectedFile.value = file;
+
+  getFileURL().then(url => fileURL.value = url)
+}
+
+</script>
 
 <template>
+
   <v-layout class="rounded rounded-md">
+    <v-overlay v-model="overlayVisible" scroll-strategy="block">
+      <v-toolbar class="tw-w-screen" density="comfortable">
+        <v-toolbar-title>{{ selectedFile?.FileName }}</v-toolbar-title>
+
+        <v-spacer></v-spacer>
+
+        <v-btn @click="() => {
+          overlayVisible = false;
+          selectedFile = null;
+          fileURL = null;
+        }" icon>
+          <v-icon>mdi-close</v-icon>
+        </v-btn>
+      </v-toolbar>
+    
+      <div class="tw-py-6 tw-flex tw-justify-center tw-items-center tw-drop-shadow-xl">
+        <v-img :src="fileURL" class="tw-h-[calc(100dvh-100px)]">
+          <template v-slot:placeholder>
+            <div class="d-flex align-center justify-center fill-height">
+              <v-progress-circular color="grey-lighten-4" indeterminate></v-progress-circular>
+            </div>
+          </template>
+        </v-img>
+      </div>
+
+    </v-overlay>
+
     <v-app-bar>
       <v-menu>
         <template v-slot:activator="{ props: menu }">
           <v-tooltip location="top">
             <template v-slot:activator="{ props: tooltip }">
-              <v-btn
-                icon="mdi-account"
-                v-bind="mergeProps(menu, tooltip)"
-              ></v-btn>
+              <v-btn icon="mdi-account" v-bind="mergeProps(menu, tooltip)"></v-btn>
             </template>
             <span>Account menu</span>
           </v-tooltip>
         </template>
         <v-list>
-          <v-list-item prepend-icon="mdi-logout-variant" @click="logout"
-            >Log out</v-list-item
-          >
+          <v-list-item prepend-icon="mdi-logout-variant" @click="logout">Log out</v-list-item>
         </v-list>
       </v-menu>
       <v-app-bar-title>Halo Arajdian Altaf!</v-app-bar-title>
@@ -96,20 +141,21 @@ console.log(route)
       <v-list-item>
         <v-menu>
           <template v-slot:activator="{ props }">
-            <v-btn class="rounded-lg mt-2" variant="tonal" block v-bind="props" :disabled="(route.name != 'explorer-files' && route.name != 'explorer-files-code')">
+            <v-btn class="rounded-lg mt-2" variant="tonal" block v-bind="props"
+              :disabled="(route.name != 'explorer-files' && route.name != 'explorer-files-code')">
               <v-icon>mdi-plus</v-icon>
               New
             </v-btn>
           </template>
           <v-list>
-            <v-list-item @click="() => {}" ref="upFileDialogActivator">
+            <v-list-item @click="() => { }" ref="upFileDialogActivator">
               <v-icon>mdi-upload</v-icon> Upload file
             </v-list-item>
             <v-divider></v-divider>
-            <v-list-item @click="() => {}" ref="newFolderDialogActivator">
+            <v-list-item @click="() => { }" ref="newFolderDialogActivator">
               <v-icon>mdi-folder-plus</v-icon> New folder
             </v-list-item>
-            <v-list-item @click="() => {}">
+            <v-list-item @click="() => { }">
               <!-- TODO: WIP -->
               <v-icon>mdi-folder-upload</v-icon> Upload folder
             </v-list-item>
@@ -134,25 +180,13 @@ console.log(route)
     </v-navigation-drawer>
 
     <!-- UPLOAD FILE DIALOG -->
-    <v-dialog
-      v-model="uploadFileDialog"
-      :activator="upFileDialogActivator"
-      max-width="30rem"
-      persistent
-    >
-      <template v-slot:default="{ isActive:_ }">
+    <v-dialog v-model="uploadFileDialog" :activator="upFileDialogActivator" max-width="30rem" persistent>
+      <template v-slot:default="{ isActive: _ }">
         <form @submit.prevent="uploadFile">
           <v-card title="Upload file">
             <v-card-text>
-              <v-file-input
-                variant="outlined"
-                accept="*"
-                label="File input"
-                v-model="file"
-                counter
-                show-size
-                name="file"
-              ></v-file-input>
+              <v-file-input variant="outlined" accept="*" label="File input" v-model="file" counter show-size
+                name="file"></v-file-input>
             </v-card-text>
             <v-card-actions>
               <v-btn @click="uploadFileDialog = false">Cancel</v-btn>
@@ -164,17 +198,13 @@ console.log(route)
     </v-dialog>
 
     <!-- NEW FOLDER DIALOG -->
-    <v-dialog
-      v-model="newFolderDialog"
-      :activator="newFolderDialogActivator"
-      max-width="30rem"
-      persistent
-    >
-      <template v-slot:default="{ isActive:_ }">
+    <v-dialog v-model="newFolderDialog" :activator="newFolderDialogActivator" max-width="30rem" persistent>
+      <template v-slot:default="{ isActive: _ }">
         <form @submit.prevent="newFolder">
           <v-card title="Create new folder">
             <v-card-text>
-              <v-text-field label="Folder name" v-model="newFolderName" variant="outlined" :rules="[rules.required]"></v-text-field>
+              <v-text-field label="Folder name" v-model="newFolderName" variant="outlined"
+                :rules="[rules.required]"></v-text-field>
             </v-card-text>
             <v-card-actions>
               <v-btn @click="newFolderDialog = false">Cancel</v-btn>
@@ -186,7 +216,9 @@ console.log(route)
     </v-dialog>
 
     <v-main>
-      <RouterView />
+      <RouterView v-slot="{ Component }">
+        <component :is="Component" @file:select="handleFileChange" />
+      </RouterView>
     </v-main>
   </v-layout>
 </template>
