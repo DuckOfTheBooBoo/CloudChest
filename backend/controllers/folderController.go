@@ -263,7 +263,7 @@ func FolderContentsCreate(c *gin.Context) {
 			return
 		}
 
-		if strings.HasPrefix(newFile.FileType, "image/") {
+		if strings.HasPrefix(newFile.FileType, "image/") || strings.HasPrefix(newFile.FileType, "video/") {
 			go jobs.GenerateThumbnail(ctx, minioClient, db, newFile, user.MinioBucket)
 		}
 

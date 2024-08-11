@@ -3,19 +3,136 @@ package jobs
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
 	"image/jpeg"
+	"io"
 	"log"
+	"math/rand"
+	"os"
+	"strconv"
 	"strings"
 
 	"github.com/DuckOfTheBooBoo/web-gallery-app/backend/models"
 	"github.com/disintegration/imaging"
+	"github.com/gofrs/uuid/v5"
 	"github.com/minio/minio-go/v7"
 	ffmpeg "github.com/u2takey/ffmpeg-go"
 	"gorm.io/gorm"
 )
 
-func processImage(file models.File, assetFile *minio.Object, userBucket string) (bytes.Buffer, error) {
+
+type Stream struct {
+	Index              int         `json:"index"`
+	CodecName          string      `json:"codec_name"`
+	CodecLongName      string      `json:"codec_long_name"`
+	Profile            string      `json:"profile"`
+	CodecType          string      `json:"codec_type"`
+	CodecTagString     string      `json:"codec_tag_string"`
+	CodecTag           string      `json:"codec_tag"`
+	Width              int         `json:"width"`
+	Height             int         `json:"height"`
+	CodedWidth         int         `json:"coded_width"`
+	CodedHeight        int         `json:"coded_height"`
+	ClosedCaptions     int         `json:"closed_captions"`
+	FilmGrain          int         `json:"film_grain"`
+	HasBFrames         int         `json:"has_b_frames"`
+	SampleAspectRatio  string      `json:"sample_aspect_ratio"`
+	DisplayAspectRatio string      `json:"display_aspect_ratio"`
+	PixFmt             string      `json:"pix_fmt"`
+	Level              int         `json:"level"`
+	ColorRange         string      `json:"color_range"`
+	ColorSpace         string      `json:"color_space"`
+	ColorTransfer      string      `json:"color_transfer"`
+	ColorPrimaries     string      `json:"color_primaries"`
+	ChromaLocation     string      `json:"chroma_location"`
+	FieldOrder         string      `json:"field_order"`
+	Refs               int         `json:"refs"`
+	IsAvc              string      `json:"is_avc"`
+	NalLengthSize      string      `json:"nal_length_size"`
+	ID                 string      `json:"id"`
+	RFrameRate         string      `json:"r_frame_rate"`
+	AvgFrameRate       string      `json:"avg_frame_rate"`
+	TimeBase           string      `json:"time_base"`
+	StartPts           int         `json:"start_pts"`
+	StartTime          string      `json:"start_time"`
+	DurationTs         int         `json:"duration_ts"`
+	Duration           string      `json:"duration"`
+	BitRate            string      `json:"bit_rate"`
+	BitsPerRawSample   string      `json:"bits_per_raw_sample"`
+	NbFrames           string      `json:"nb_frames"`
+	ExtradataSize      int         `json:"extradata_size"`
+	Disposition        Disposition `json:"disposition"`
+	Tags               Tags        `json:"tags"`
+	SampleFmt          string      `json:"sample_fmt"`
+	SampleRate         string      `json:"sample_rate"`
+	Channels           int         `json:"channels"`
+	ChannelLayout      string      `json:"channel_layout"`
+	BitsPerSample      int         `json:"bits_per_sample"`
+	InitialPadding     int         `json:"initial_padding"`
+}
+
+type Disposition struct {
+	Default         int `json:"default"`
+	Dub             int `json:"dub"`
+	Original        int `json:"original"`
+	Comment         int `json:"comment"`
+	Lyrics          int `json:"lyrics"`
+	Karaoke         int `json:"karaoke"`
+	Forced          int `json:"forced"`
+	HearingImpaired int `json:"hearing_impaired"`
+	VisualImpaired  int `json:"visual_impaired"`
+	CleanEffects    int `json:"clean_effects"`
+	AttachedPic     int `json:"attached_pic"`
+	TimedThumbnails int `json:"timed_thumbnails"`
+	Captions        int `json:"captions"`
+	Descriptions    int `json:"descriptions"`
+	Metadata        int `json:"metadata"`
+	Dependent       int `json:"dependent"`
+	StillImage      int `json:"still_image"`
+}
+type Tags struct {
+	Language    string `json:"language"`
+	HandlerName string `json:"handler_name"`
+	VendorID    string `json:"vendor_id"`
+}
+type Format struct {
+	Filename       string     `json:"filename"`
+	NbStreams      int        `json:"nb_streams"`
+	NbPrograms     int        `json:"nb_programs"`
+	FormatName     string     `json:"format_name"`
+	FormatLongName string     `json:"format_long_name"`
+	StartTime      string     `json:"start_time"`
+	Duration       string     `json:"duration"`
+	Size           string     `json:"size"`
+	BitRate        string     `json:"bit_rate"`
+	ProbeScore     int        `json:"probe_score"`
+	Tags           FormatTags `json:"tags"`
+}
+
+type FormatTags struct {
+	MajorBrand       string `json:"major_brand"`
+	MinorVersion     string `json:"minor_version"`
+	CompatibleBrands string `json:"compatible_brands"`
+	Encoder          string `json:"encoder"`
+}
+
+type ProbeResult struct {
+	Streams []Stream `json:"streams"`
+	Format  Format   `json:"format"`
+}
+
+func check(msg string, err error) {
+	if err != nil {
+		log.Printf(msg, err.Error())
+	}
+}
+
+func getRandomFrameNum(start int, end int) int {
+	return rand.Intn(end-start) + start // Generate random number within range
+}
+
+func processImage(file models.File, assetFile *minio.Object) (bytes.Buffer, error) {
 	assetImg, err := imaging.Decode(assetFile, imaging.AutoOrientation(true))
 
 	if err != nil {
@@ -41,8 +158,82 @@ func processImage(file models.File, assetFile *minio.Object, userBucket string) 
 	
 }
 
-func processVideo(minioClient *minio.Client, db *gorm.DB, file models.File, assetFile *minio.Object, userBucket string) {
+func processVideo(file models.File, assetFile *minio.Object, debug bool) (bytes.Buffer, error) {
+	tempUUID, err := uuid.NewV4()
+	if err != nil {
+		return bytes.Buffer{}, fmt.Errorf("Failed to generate UUID: %v", err)
+	}
+
+	tempPath := "/tmp/"+tempUUID.String()
+
+	tempFile, err := os.Create(tempPath)
+	if err != nil {
+		return bytes.Buffer{}, fmt.Errorf("Failed to create temp file: %v", err)
+	}
+
+	_, err = io.Copy(tempFile, assetFile)
+	if err != nil {
+		return bytes.Buffer{}, fmt.Errorf("Failed to copy data to temp file: %v", err)
+	}
+
+	defer os.Remove(tempPath)
+
+	str, err := ffmpeg.Probe(tempPath)
+	if err != nil {
+		return bytes.Buffer{}, fmt.Errorf("Failed to probe video file: %v", err)
+	}
+
+	metadataJSONBytes := []byte(str)
+
+	var probeResult ProbeResult
+	err = json.Unmarshal(metadataJSONBytes, &probeResult)
+	if err != nil {
+		return bytes.Buffer{}, fmt.Errorf("Failed to parse ffprobe output: %v", err)
+	}
+
+	// Get the number of video's frames
+	var stream Stream
+	for _, s := range probeResult.Streams {
+		if s.CodecType == "video" {
+			stream = s
+			break
+		}
+	}
+
+	if stream == (Stream{}) {
+		return bytes.Buffer{}, fmt.Errorf("Failed to find video stream")
+	}
+
+	numFrames := stream.NbFrames
+	numFramesInt, err := strconv.Atoi(numFrames)
+	if err != nil {
+		return bytes.Buffer{}, fmt.Errorf("Failed to parse string to int: %v", err)
+	}
+
+	frameThumbnail := getRandomFrameNum(0, numFramesInt)
+	outBuf := new(bytes.Buffer)
 	
+	var errorOutput io.Writer
+	if debug {
+        errorOutput = os.Stderr // Show output in debug mode
+    } else {
+        errorOutput = io.Discard // Hide output in normal mode
+    }
+
+	err = ffmpeg.Input(tempPath).
+		Filter("select", ffmpeg.Args{fmt.Sprintf(`eq(n\,%d)`, frameThumbnail)}).
+		Filter("scale", ffmpeg.Args{"-1", "150"}).
+		Output("-", ffmpeg.KwArgs{
+			"vframes": "1","f": "image2pipe"}).
+		WithOutput(outBuf).
+		OverWriteOutput().  // Redirect FFmpeg logs to standard output and error.                // Add this if you want to overwrite the output file if it exists
+		WithErrorOutput(errorOutput).                  // Ensure that error messages go to standard output
+		Run()
+	if err != nil {
+		return bytes.Buffer{}, fmt.Errorf("Failed to generate video thumbnail: %v", err)
+	}
+
+	return *outBuf, nil
 }
 
 func GenerateThumbnail(ctx context.Context, minioClient *minio.Client, db *gorm.DB, file models.File, userBucket string) {
@@ -57,13 +248,17 @@ func GenerateThumbnail(ctx context.Context, minioClient *minio.Client, db *gorm.
 	var thumbnailBuf bytes.Buffer
 
 	if strings.HasPrefix(file.FileType, "image/") {
-		thumbnailBuf, err = processImage(file, assetFile, userBucket)
+		thumbnailBuf, err = processImage(file, assetFile)
 		if err != nil {
 			log.Printf("Error while generating image thumbnail: %s -> %v\n", file.FileName, err)
 			return
 		}
 	} else if strings.HasPrefix(file.FileType, "video/") {
-		processVideo(minioClient, db, file, assetFile, userBucket)
+		thumbnailBuf, err = processVideo(file, assetFile, false)
+		if err != nil {
+			log.Printf("Error while generating video thumbnail: %s -> %v\n", file.FileName, err)
+			return
+		}
 	}
 
 	size := int64(thumbnailBuf.Len())
