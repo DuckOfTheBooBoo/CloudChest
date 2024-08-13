@@ -274,45 +274,48 @@ func FolderContentsCreate(c *gin.Context) {
 		})
 
 		if strings.HasPrefix(newFile.FileType, "image/") || strings.HasPrefix(newFile.FileType, "video/") {
-			go func(){
+			go func() {
 				var wg sync.WaitGroup
-				stringChan := make(chan string)
-	
+				tempThumbFilePathChan := make(chan string, 1)
+				tempHLSbFilePathChan := make(chan string)
+
 				// Write file to temp dir
 				wg.Add(1)
 				go func() {
 					defer wg.Done()
-	
 					result := jobs.WriteTempFile(newFile, uploadedFile)
-					stringChan <- result
+					tempThumbFilePathChan <- result
+					tempHLSbFilePathChan <- result
 				}()
-	
+
 				// Process thumbnail
 				wg.Add(1)
 				go func() {
 					defer wg.Done()
-					filePath := <- stringChan
+					filePath := <- tempThumbFilePathChan
 					jobs.GenerateThumbnail(ctx, filePath, minioClient, db, newFile, user.MinioBucket)
 				}()
-	
+
 				// Process HLS file (video only)
 				if strings.HasPrefix(newFile.FileType, "video/") && newFile.FileSize <= MAX_PREVIEWABLE_VIDEO_SIZE {
 					log.Printf("Processing %s for HLS", newFile.FileName)
 					wg.Add(1)
-					go func(){
+					go func() {
 						defer wg.Done()
-						filePath := <- stringChan
+						filePath := <- tempHLSbFilePathChan
 						jobs.ProcessHLS(filePath, ctx, minioClient, newFile, user.MinioBucket)
 					}()
 				}
-	
+
 				// Remove temp file
 				wg.Wait()
-				filePath := <- stringChan
+				filePath := <- tempThumbFilePathChan
 				os.Remove(filePath)
 				log.Println("Removed temp file: " + filePath)
 			}()
 		}
+
+		return
 	}
 
 	files := form.File["files"]

@@ -132,6 +132,7 @@ func getRandomFrameNum(start int, end int) int {
 }
 
 func processImage(file models.File, filePath string) (bytes.Buffer, error) {
+	log.Println("Processing image thumbnail for: " + filePath)
 	assetFile, err := os.Open(filePath)
 	if err != nil {
 		return bytes.Buffer{}, fmt.Errorf("Error while opening image file %s: %v", file.FileName, err)
@@ -161,6 +162,7 @@ func processImage(file models.File, filePath string) (bytes.Buffer, error) {
 }
 
 func processVideo(filePath string, debug bool) (bytes.Buffer, error) {
+	log.Println("Processing video thumbnail for: " + filePath)
 	str, err := ffmpeg.Probe(filePath)
 	if err != nil {
 		return bytes.Buffer{}, fmt.Errorf("Failed to probe video file: %v", err)
@@ -222,6 +224,12 @@ func processVideo(filePath string, debug bool) (bytes.Buffer, error) {
 func GenerateThumbnail(ctx context.Context, filePath string, minioClient *minio.Client, db *gorm.DB, file models.File, userBucket string) {
 	var thumbnailBuf bytes.Buffer
 	var err error
+
+	if filePath == "" {
+		log.Println("File path is empty")
+		return
+	}
+
 	if strings.HasPrefix(file.FileType, "image/") {
 		thumbnailBuf, err = processImage(file, filePath)
 		if err != nil {
