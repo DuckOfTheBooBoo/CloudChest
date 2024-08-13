@@ -21,6 +21,10 @@ import (
 	"gorm.io/gorm"
 )
 
+const (
+	MAX_PREVIEWABLE_VIDEO_SIZE = 150 * 1000 * 1000
+)
+
 func FolderList(c *gin.Context) {
 	db := c.MustGet("db").(*gorm.DB)
 	userClaim := c.MustGet("userClaims").(*utils.UserClaims)
@@ -292,7 +296,7 @@ func FolderContentsCreate(c *gin.Context) {
 				}()
 	
 				// Process HLS file (video only)
-				if strings.HasPrefix(newFile.FileType, "video/") {
+				if strings.HasPrefix(newFile.FileType, "video/") && newFile.FileSize <= MAX_PREVIEWABLE_VIDEO_SIZE {
 					log.Printf("Processing %s for HLS", newFile.FileName)
 					wg.Add(1)
 					go func(){
