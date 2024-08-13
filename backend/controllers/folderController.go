@@ -3,6 +3,7 @@ package controllers
 import (
 	"context"
 	"errors"
+	"io"
 	"log"
 	"net/http"
 	"os"
@@ -235,6 +236,10 @@ func FolderContentsCreate(c *gin.Context) {
 			IsFavorite: false,
 		}
 
+		if strings.HasPrefix(newFile.FileType, "image/") {
+			newFile.IsPreviewable = true
+		}
+
 		err = db.Create(&newFile).Error
 
 		if err != nil {
@@ -257,6 +262,16 @@ func FolderContentsCreate(c *gin.Context) {
 		}
 		defer uploadedFile.Close()
 
+		// Prepare []byte of the uploded file in case its a media (image or video) file. Else let it collected by garbage collector
+		var uploadedFileBytes []byte
+		if strings.HasPrefix(newFile.FileType, "image/") || strings.HasPrefix(newFile.FileType, "video/") {
+			uploadedFileBytes, err = io.ReadAll(uploadedFile)
+			if err != nil {
+				log.Printf("Error while reading uploaded file: %v", err)
+				return
+			}
+		}
+
 		filePath := "/" + fileCode.String()
 
 		_, err = minioClient.PutObject(ctx, user.MinioBucket, filePath, uploadedFile, file.Size, minio.PutObjectOptions{ContentType: file.Header.Get("Content-Type")})
@@ -275,6 +290,8 @@ func FolderContentsCreate(c *gin.Context) {
 
 		if strings.HasPrefix(newFile.FileType, "image/") || strings.HasPrefix(newFile.FileType, "video/") {
 			go func() {
+				jobCtx, cancel := context.WithCancel(ctx)
+				defer cancel()
 				var wg sync.WaitGroup
 				tempThumbFilePathChan := make(chan string, 1)
 				tempHLSbFilePathChan := make(chan string)
@@ -283,28 +300,50 @@ func FolderContentsCreate(c *gin.Context) {
 				wg.Add(1)
 				go func() {
 					defer wg.Done()
-					result := jobs.WriteTempFile(newFile, uploadedFile)
+
+					result, err := jobs.WriteTempFile(newFile, uploadedFileBytes)
+					if err != nil {
+						cancel()
+						log.Println(err)
+						return
+					}
 					tempThumbFilePathChan <- result
 					tempHLSbFilePathChan <- result
 				}()
 
 				// Process thumbnail
 				wg.Add(1)
-				go func() {
+				go func(ctx context.Context) {
 					defer wg.Done()
-					filePath := <- tempThumbFilePathChan
-					jobs.GenerateThumbnail(ctx, filePath, minioClient, db, newFile, user.MinioBucket)
-				}()
+
+					select {
+						case <- ctx.Done():
+							log.Println("Thumbnail generation cancelled due to error in writing temp file.")
+							return
+						
+						default:
+							filePath := <- tempThumbFilePathChan
+							jobs.GenerateThumbnail(ctx, filePath, minioClient, db, newFile, user.MinioBucket)
+					}
+
+				}(jobCtx)
 
 				// Process HLS file (video only)
 				if strings.HasPrefix(newFile.FileType, "video/") && newFile.FileSize <= MAX_PREVIEWABLE_VIDEO_SIZE {
 					log.Printf("Processing %s for HLS", newFile.FileName)
 					wg.Add(1)
-					go func() {
+					go func(ctx context.Context) {
 						defer wg.Done()
-						filePath := <- tempHLSbFilePathChan
-						jobs.ProcessHLS(filePath, ctx, minioClient, newFile, user.MinioBucket)
-					}()
+						select {
+						case <- ctx.Done():
+							log.Println("HLS process cancelled due to error in writing temp file.")
+							return
+						
+						default:
+							filePath := <- tempHLSbFilePathChan
+							jobs.ProcessHLS(filePath, ctx, minioClient, db, newFile, user.MinioBucket)
+						}
+					}(jobCtx)
 				}
 
 				// Remove temp file

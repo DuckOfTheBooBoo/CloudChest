@@ -2,25 +2,22 @@ package jobs
 
 import (
 	"fmt"
-	"io"
-	"log"
 	"os"
 
 	"github.com/DuckOfTheBooBoo/web-gallery-app/backend/models"
 )
 
-func WriteTempFile(file models.File, assetFile io.Reader) string {
+func WriteTempFile(file models.File, assetFileBytes []byte) (string, error) {
 	tempPath := fmt.Sprintf("/tmp/%s-file", file.FileCode)
 
 	tempFile, err := os.Create(tempPath)
 	if err != nil {
-		log.Println(err)
+		return "", fmt.Errorf("error while creating temp file: %v", err)
 	}
-
-	_, err = io.Copy(tempFile, assetFile)
+	_, err = tempFile.Write(assetFileBytes)
 	if err != nil {
-		log.Println(err)
+		return "", fmt.Errorf("error while writing to temp file: %v", err)
 	}
 
-	return tempPath
+	return tempPath, nil
 }
