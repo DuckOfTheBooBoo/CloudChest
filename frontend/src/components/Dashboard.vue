@@ -124,7 +124,7 @@ function handlePreviewClose(): void {
             </div>
           </template>
         </v-img>
-        <media-controller v-else-if="previewable && selectedFile?.FileType.includes('video/')">
+        <media-controller class="tw-h-[calc(100dvh-100px)]" v-else-if="previewable && selectedFile?.FileType.includes('video/')">
           <hls-video :src="`/api/hls/${selectedFile?.FileCode}/masterPlaylist`" slot="media"
             crossorigin muted></hls-video>
           <media-loading-indicator slot="centered-chrome" noautohide></media-loading-indicator>
