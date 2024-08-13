@@ -10,9 +10,10 @@ import (
 	"github.com/DuckOfTheBooBoo/web-gallery-app/backend/models"
 	"github.com/minio/minio-go/v7"
 	ffmpeg "github.com/u2takey/ffmpeg-go"
+	"gorm.io/gorm"
 )
 
-func ProcessHLS(filePath string, ctx context.Context, minioClient *minio.Client, file models.File, userBucket string) {
+func ProcessHLS(filePath string, ctx context.Context, minioClient *minio.Client, db *gorm.DB, file models.File, userBucket string) {
 	tmpDir := "/tmp/"+file.FileCode
 	if _, err := os.Stat(tmpDir); err == nil {
 		os.RemoveAll(tmpDir)
@@ -35,6 +36,7 @@ func ProcessHLS(filePath string, ctx context.Context, minioClient *minio.Client,
 
 	if err != nil {
 		log.Printf("Error while processing HLS file: %s -> %v", file.FileName, err)
+		return
 	}
 
 	// Replace all relative path in m3u8 file
@@ -43,6 +45,7 @@ func ProcessHLS(filePath string, ctx context.Context, minioClient *minio.Client,
 	content, err := os.ReadFile(tempMasterPlaylistFilePath)
 	if err != nil {
 		log.Printf("Error while reading master playlist: %s -> %v", file.FileName, err)
+		return
 	}
 
 	text := string(content)
@@ -56,12 +59,14 @@ func ProcessHLS(filePath string, ctx context.Context, minioClient *minio.Client,
 	err = os.WriteFile(fmt.Sprintf("%s/%s.m3u8", tmpDir, file.FileCode), []byte(modifiedText), 0644)
 	if err != nil {
 		log.Printf("Error while saving modified master playlist: %s -> %v\n", file.FileName, err)
+		return
 	}
 
 	// log.Println("Reading temporary files")
 	files, err := os.ReadDir(tmpDir)
 	if err != nil {
 		log.Println(err)
+		return
 	}
 
 	// log.Println("Uploading HLS files")
@@ -99,6 +104,18 @@ func ProcessHLS(filePath string, ctx context.Context, minioClient *minio.Client,
 				return
 			}
 		}
+	}
+
+	var assetFile models.File
+	if err := db.Where("file_code = ?", file.FileCode).First(&assetFile).Error; err != nil {
+		log.Printf("Error while getting asset file from database: %v", err)
+		return
+	}
+
+	assetFile.IsPreviewable = true
+	if err := db.Save(&assetFile).Error; err != nil {
+		log.Printf("Error while updating asset file in database: %v", err)
+		return
 	}
 
 	log.Println("Created HLS playlist: " + file.FileCode)
