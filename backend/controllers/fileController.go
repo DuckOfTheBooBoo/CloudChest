@@ -95,6 +95,7 @@ func FileDelete(c *gin.Context) {
 			return
 		}
 
+		// Delete Thumbnail
 		if file.Thumbnail != nil {
 			// DELETE FROM MINIO
 			if err := minioClient.RemoveObject(ctx, user.MinioBucket, file.Thumbnail.FilePath, minio.RemoveObjectOptions{}); err != nil {
@@ -106,6 +107,34 @@ func FileDelete(c *gin.Context) {
 			if err := db.Unscoped().Model(&file).Association("Thumbnail").Unscoped().Clear(); err != nil {
 				c.Status(http.StatusInternalServerError)
 				log.Println("Failed to delete thumbnail from database: ", err.Error())
+				return
+			}
+		}
+
+		// Delete HLS segments and master playlist
+		if file.IsPreviewable && strings.HasPrefix(file.FileType, "video/") {
+			objectsCh := make(chan minio.ObjectInfo)
+
+			go func() {
+				defer close(objectsCh)
+				// List all objects from a bucket-name with a matching prefix.
+				for object := range minioClient.ListObjects(ctx, user.MinioBucket, minio.ListObjectsOptions{
+					Prefix: "hls/" + file.FileCode,
+					Recursive: true,
+				}) {
+					if object.Err != nil {
+						log.Fatalln(object.Err)
+					}
+
+					if strings.HasSuffix(object.Key, ".m3u8") || strings.HasSuffix(object.Key, ".ts") {
+						objectsCh <- object
+					}
+				}
+			}()
+
+			for rErr := range minioClient.RemoveObjects(ctx, user.MinioBucket, objectsCh, minio.RemoveObjectsOptions{}) {
+				log.Println("Error detected during deletion: ", rErr)
+				c.Status(http.StatusInternalServerError)
 				return
 			}
 		}
@@ -363,7 +392,6 @@ func FileThumbnail(c *gin.Context) {
 		log.Println(err.Error())
 		return
 	}
-
 
 	c.DataFromReader(http.StatusOK, info.Size, info.ContentType, thumbnail, nil)
 }
