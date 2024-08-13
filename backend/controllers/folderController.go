@@ -5,8 +5,10 @@ import (
 	"errors"
 	"log"
 	"net/http"
+	"os"
 	"slices"
 	"strings"
+	"sync"
 
 	"github.com/DuckOfTheBooBoo/web-gallery-app/backend/jobs"
 	"github.com/DuckOfTheBooBoo/web-gallery-app/backend/models"
@@ -66,7 +68,7 @@ func FolderList(c *gin.Context) {
 		hierarchies = append(hierarchies, folderHierarchy)
 		currentParent = &parent
 	}
-	
+
 	slices.Reverse(hierarchies)
 	hierarchies = append(hierarchies, models.FolderHierarchy{
 		Name: parentFolder.Name,
@@ -74,7 +76,7 @@ func FolderList(c *gin.Context) {
 	})
 
 	c.JSON(http.StatusOK, gin.H{
-		"folders": parentFolder.ChildFolders,
+		"folders":     parentFolder.ChildFolders,
 		"hierarchies": hierarchies,
 	})
 }
@@ -111,7 +113,7 @@ func FolderCreate(c *gin.Context) {
 		return
 	}
 
-	// Fetch parent folder	
+	// Fetch parent folder
 	var parentFolder models.Folder
 	// Query by parent folder code
 	if parentFolderCode != "root" {
@@ -139,10 +141,10 @@ func FolderCreate(c *gin.Context) {
 		}
 	}
 	newFolder := models.Folder{
-		UserID: userClaim.ID,
+		UserID:   userClaim.ID,
 		ParentID: &parentFolder.ID,
-		Name:   folderBody.FolderName,
-		Code: newFolderCode,
+		Name:     folderBody.FolderName,
+		Code:     newFolderCode,
 	}
 
 	if err := db.Create(&newFolder).Error; err != nil {
@@ -263,14 +265,50 @@ func FolderContentsCreate(c *gin.Context) {
 			return
 		}
 
-		if strings.HasPrefix(newFile.FileType, "image/") || strings.HasPrefix(newFile.FileType, "video/") {
-			go jobs.GenerateThumbnail(ctx, minioClient, db, newFile, user.MinioBucket)
-		}
-
 		c.JSON(http.StatusCreated, gin.H{
 			"file": newFile,
 		})
-		return
+
+		if strings.HasPrefix(newFile.FileType, "image/") || strings.HasPrefix(newFile.FileType, "video/") {
+			go func(){
+				var wg sync.WaitGroup
+				stringChan := make(chan string)
+	
+				// Write file to temp dir
+				wg.Add(1)
+				go func() {
+					defer wg.Done()
+	
+					result := jobs.WriteTempFile(newFile, uploadedFile)
+					stringChan <- result
+				}()
+	
+				// Process thumbnail
+				wg.Add(1)
+				go func() {
+					defer wg.Done()
+					filePath := <- stringChan
+					jobs.GenerateThumbnail(ctx, filePath, minioClient, db, newFile, user.MinioBucket)
+				}()
+	
+				// Process HLS file (video only)
+				if strings.HasPrefix(newFile.FileType, "video/") {
+					log.Printf("Processing %s for HLS", newFile.FileName)
+					wg.Add(1)
+					go func(){
+						defer wg.Done()
+						filePath := <- stringChan
+						jobs.ProcessHLS(filePath, ctx, minioClient, newFile, user.MinioBucket)
+					}()
+				}
+	
+				// Remove temp file
+				wg.Wait()
+				filePath := <- stringChan
+				os.Remove(filePath)
+				log.Println("Removed temp file: " + filePath)
+			}()
+		}
 	}
 
 	files := form.File["files"]

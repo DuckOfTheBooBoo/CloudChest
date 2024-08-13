@@ -17,6 +17,9 @@ func init() {
 }
 
 func main() {
+
+	log.SetFlags(log.LstdFlags | log.Lshortfile)
+
 	r := gin.Default()
 
 	db, err := database.ConnectToDB()
@@ -52,6 +55,7 @@ func main() {
 	router.UserRoutes(api)
 	router.FileRoutes(api)
 	router.FolderRoutes(api)
+	router.HLSRoutes(api)
 
 	// Schedule revoked tokens ('tokens' table in database) pruning
 	c := cron.New()

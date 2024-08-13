@@ -15,7 +15,6 @@ import (
 
 	"github.com/DuckOfTheBooBoo/web-gallery-app/backend/models"
 	"github.com/disintegration/imaging"
-	"github.com/gofrs/uuid/v5"
 	"github.com/minio/minio-go/v7"
 	ffmpeg "github.com/u2takey/ffmpeg-go"
 	"gorm.io/gorm"
@@ -132,9 +131,14 @@ func getRandomFrameNum(start int, end int) int {
 	return rand.Intn(end-start) + start // Generate random number within range
 }
 
-func processImage(file models.File, assetFile *minio.Object) (bytes.Buffer, error) {
-	assetImg, err := imaging.Decode(assetFile, imaging.AutoOrientation(true))
+func processImage(file models.File, filePath string) (bytes.Buffer, error) {
+	assetFile, err := os.Open(filePath)
+	if err != nil {
+		return bytes.Buffer{}, fmt.Errorf("Error while opening image file %s: %v", file.FileName, err)
+	}
+	defer assetFile.Close()
 
+	assetImg, err := imaging.Decode(assetFile, imaging.AutoOrientation(true))
 	if err != nil {
 		return bytes.Buffer{}, fmt.Errorf("Error while decoding image file %s: %v", file.FileName, err)
 	}
@@ -153,32 +157,11 @@ func processImage(file models.File, assetFile *minio.Object) (bytes.Buffer, erro
 		return bytes.Buffer{}, fmt.Errorf("Error while processing thumbnail: %s -> %v\n", file.FileName, err)
 	}
 
-	return buf, nil
-
-	
+	return buf, nil	
 }
 
-func processVideo(file models.File, assetFile *minio.Object, debug bool) (bytes.Buffer, error) {
-	tempUUID, err := uuid.NewV4()
-	if err != nil {
-		return bytes.Buffer{}, fmt.Errorf("Failed to generate UUID: %v", err)
-	}
-
-	tempPath := "/tmp/"+tempUUID.String()
-
-	tempFile, err := os.Create(tempPath)
-	if err != nil {
-		return bytes.Buffer{}, fmt.Errorf("Failed to create temp file: %v", err)
-	}
-
-	_, err = io.Copy(tempFile, assetFile)
-	if err != nil {
-		return bytes.Buffer{}, fmt.Errorf("Failed to copy data to temp file: %v", err)
-	}
-
-	defer os.Remove(tempPath)
-
-	str, err := ffmpeg.Probe(tempPath)
+func processVideo(filePath string, debug bool) (bytes.Buffer, error) {
+	str, err := ffmpeg.Probe(filePath)
 	if err != nil {
 		return bytes.Buffer{}, fmt.Errorf("Failed to probe video file: %v", err)
 	}
@@ -220,7 +203,7 @@ func processVideo(file models.File, assetFile *minio.Object, debug bool) (bytes.
         errorOutput = io.Discard // Hide output in normal mode
     }
 
-	err = ffmpeg.Input(tempPath).
+	err = ffmpeg.Input(filePath).
 		Filter("select", ffmpeg.Args{fmt.Sprintf(`eq(n\,%d)`, frameThumbnail)}).
 		Filter("scale", ffmpeg.Args{"-1", "150"}).
 		Output("-", ffmpeg.KwArgs{
@@ -236,25 +219,17 @@ func processVideo(file models.File, assetFile *minio.Object, debug bool) (bytes.
 	return *outBuf, nil
 }
 
-func GenerateThumbnail(ctx context.Context, minioClient *minio.Client, db *gorm.DB, file models.File, userBucket string) {
-	assetFile, err := minioClient.GetObject(ctx, userBucket, file.FileCode, minio.GetObjectOptions{})
-
-	if err != nil {
-		log.Printf("Error while fetching file: %s -> %s\n", file.FileName, err.Error())
-		return
-	}
-	defer assetFile.Close()
-
+func GenerateThumbnail(ctx context.Context, filePath string, minioClient *minio.Client, db *gorm.DB, file models.File, userBucket string) {
 	var thumbnailBuf bytes.Buffer
-
+	var err error
 	if strings.HasPrefix(file.FileType, "image/") {
-		thumbnailBuf, err = processImage(file, assetFile)
+		thumbnailBuf, err = processImage(file, filePath)
 		if err != nil {
 			log.Printf("Error while generating image thumbnail: %s -> %v\n", file.FileName, err)
 			return
 		}
 	} else if strings.HasPrefix(file.FileType, "video/") {
-		thumbnailBuf, err = processVideo(file, assetFile, false)
+		thumbnailBuf, err = processVideo(filePath, false)
 		if err != nil {
 			log.Printf("Error while generating video thumbnail: %s -> %v\n", file.FileName, err)
 			return
