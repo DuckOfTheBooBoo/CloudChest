@@ -13,6 +13,7 @@ export interface FileResponse {
   FileSize: number;
   FileType: string;  
   IsFavorite: boolean;
+  IsPreviewable: boolean;
   Folder: Folder | null;
 }
 
@@ -28,6 +29,7 @@ export class CloudChestFile {
   FileSize: number;
   FileType: string;
   IsFavorite: boolean;
+  IsPreviewable: boolean;
 
   constructor(object: FileResponse) {
     this.ID = object.ID;
@@ -41,6 +43,7 @@ export class CloudChestFile {
     this.FileSize = object.FileSize;
     this.FileType = object.FileType;
     this.IsFavorite = object.IsFavorite;
+    this.IsPreviewable = object.IsPreviewable;
   }
 }
 
