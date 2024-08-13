@@ -85,7 +85,7 @@ async function getFileURL(): Promise<string> {
 function handleFileChange(file: CloudChestFile): void {
   overlayVisible.value = true;
   selectedFile.value = file;
-  previewable.value = file.FileType.includes('image/') || file.FileType.includes('video/');
+  previewable.value = file.FileType.includes('image/') || file.FileType.includes('video/') && file.IsPreviewable;
 
   if (selectedFile.value.FileType.includes('image/')) {
     getFileURL().then(url => fileURL.value = url)
