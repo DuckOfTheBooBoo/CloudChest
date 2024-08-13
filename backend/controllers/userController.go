@@ -160,6 +160,8 @@ func UserLogin(c *gin.Context) {
 		return
 	}
 
+	c.SetCookie("token", accessToken, 3600, "/", "localhost", false, true)
+
 	c.JSON(http.StatusOK, gin.H{
 		"token": accessToken,
 	})
