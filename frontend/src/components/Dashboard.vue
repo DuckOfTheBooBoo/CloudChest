@@ -87,7 +87,9 @@ function handleFileChange(file: CloudChestFile): void {
   selectedFile.value = file;
   previewable.value = file.FileType.includes('image/') || file.FileType.includes('video/');
 
-  getFileURL().then(url => fileURL.value = url)
+  if (selectedFile.value.FileType.includes('image/')) {
+    getFileURL().then(url => fileURL.value = url)
+  }
 }
 
 function handlePreviewClose(): void {
@@ -112,15 +114,32 @@ function handlePreviewClose(): void {
           <v-icon>mdi-close</v-icon>
         </v-btn>
       </v-toolbar>
-    
+
       <div class="tw-py-6 tw-flex tw-justify-center tw-items-center tw-drop-shadow-xl">
-        <v-img v-if="previewable" :src="fileURL" class="tw-h-[calc(100dvh-100px)]">
+        <v-img v-if="previewable && selectedFile?.FileType.includes('image/')" :src="fileURL"
+          class="tw-h-[calc(100dvh-100px)]">
           <template v-slot:placeholder>
             <div class="d-flex align-center justify-center fill-height">
               <v-progress-circular color="grey-lighten-4" indeterminate></v-progress-circular>
             </div>
           </template>
         </v-img>
+        <media-controller v-else-if="previewable && selectedFile?.FileType.includes('video/')">
+          <hls-video :src="`/api/hls/${selectedFile?.FileCode}/masterPlaylist`" slot="media"
+            crossorigin muted></hls-video>
+          <media-loading-indicator slot="centered-chrome" noautohide></media-loading-indicator>
+          <media-control-bar>
+            <media-play-button></media-play-button>
+            <media-seek-backward-button></media-seek-backward-button>
+            <media-seek-forward-button></media-seek-forward-button>
+            <media-mute-button></media-mute-button>
+            <media-volume-range></media-volume-range>
+            <media-time-range></media-time-range>
+            <media-time-display showduration remaining></media-time-display>
+            <media-playback-rate-button></media-playback-rate-button>
+            <media-fullscreen-button></media-fullscreen-button>
+          </media-control-bar>
+        </media-controller>
         <p v-else class="tw-text-2xl">This file is does not have a preview.</p>
       </div>
 
