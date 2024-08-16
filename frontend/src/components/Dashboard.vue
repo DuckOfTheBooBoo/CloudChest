@@ -1,12 +1,14 @@
 <script setup lang="ts">
 import axios from "axios";
-import { ref, mergeProps } from "vue";
+import { ref, mergeProps, inject } from "vue";
 import { useRouter, useRoute } from "vue-router";
 import { useEventEmitterStore } from "../stores/eventEmitterStore"
 import { FILE_UPDATED } from "../constants"
 import { createNewFolder } from "../utils/foldersApi";
 import { CloudChestFile } from "../models/file";
 import { downloadFile } from "../utils/filesApi";
+import AxiosManager from "./AxiosManager.vue";
+import {useAxiosManagerStore} from "../stores/axiosManagerStore";
 
 const selectedNav = ref(0);
 const router = useRouter();
@@ -25,6 +27,8 @@ const upFileDialogActivator = ref(undefined);
 
 const newFolderDialog = ref<boolean>(false);
 const newFolderDialogActivator = ref(undefined);
+
+const axiosManager = useAxiosManagerStore();
 
 async function logout(): Promise<void> {
   try {
@@ -46,17 +50,10 @@ async function logout(): Promise<void> {
 
 async function uploadFile(_: Event): Promise<void> {
   const folderCode: string = route.params.code ? route.params.code as string : 'root';
-  try {
-    await axios.postForm(`/api/folders/${folderCode}/files`, {
-      file: file.value as File,
-    });
-    eventEmitter.eventEmitter.emit(FILE_UPDATED);
-  } catch (error) {
-    console.error(error);
-  } finally {
-    uploadFileDialog.value = false; // end
-    file.value = null;
-  }
+  const newFile: File = file.value as File;
+  axiosManager.addUploadRequest(newFile, folderCode);
+  file.value = null;
+  uploadFileDialog.value = false;
 }
 
 async function newFolder(_: Event): Promise<void> {
@@ -98,12 +95,11 @@ function handlePreviewClose(): void {
   fileURL.value = null;
   previewable.value = false;
 }
-
 </script>
 
 <template>
-
-  <v-layout class="rounded rounded-md">
+  <v-layout class="rounded rounded-md tw-relative">
+    <AxiosManager v-if="axiosManager.ongoingRequests.length > 0" class="tw-fixed tw-box-border tw-bottom-0 tw-right-0 tw-z-10" />
     <v-overlay v-model="overlayVisible" scroll-strategy="block">
       <v-toolbar class="tw-w-screen" density="comfortable">
         <v-toolbar-title>{{ selectedFile?.FileName }}</v-toolbar-title>

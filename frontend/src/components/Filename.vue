@@ -27,7 +27,7 @@ onMounted(() => {
 </script>
 
 <template>
-  <p ref="pTag" :class="pClass">{{ props.filename }}</p>
+  <p ref="pTag" :class="pClass" v-bind="$attrs">{{ props.filename }}</p>
 </template>
 
 <style scoped></style>
