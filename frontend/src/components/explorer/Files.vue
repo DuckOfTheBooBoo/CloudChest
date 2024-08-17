@@ -12,7 +12,8 @@ import { FILE_UPDATED, FOLDER_UPDATED } from "../../constants";
 import type FolderHierarchy from "../../models/folderHierarchy";
 
 const emit = defineEmits<{
-  (e: "file:select", file: CloudChestFile): void
+  (e: "file:select", file: CloudChestFile): void,
+  (e: "folder:select", folderCode: string): void
 }>();
 
 const fileList: Ref<CloudChestFile[]> = ref([] as CloudChestFile[]);
@@ -62,6 +63,7 @@ async function fetchFiles(folderCode: string): Promise<void> {
 }
 
 function handleFolderCodeChange(newFolderCode: string) {
+  emit('folder:select', newFolderCode)
   router.push({ name: 'explorer-files-code', params: { code: newFolderCode } })
 }
 </script>
@@ -70,7 +72,10 @@ function handleFolderCodeChange(newFolderCode: string) {
   <v-container class="tw-flex tw-flex-col tw-gap-6">
     <nav>
       <span>
-        <v-btn variant="text" rounded="xl" class="text-h6" @click="router.push({ name: 'explorer-files' })">Home</v-btn>
+        <v-btn variant="text" rounded="xl" class="text-h6" @click="() => {
+          router.push({ name: 'explorer-files' })
+          emit('folder:select', 'root')
+        }">Home</v-btn>
         <v-icon>mdi-menu-right</v-icon>
       </span>
       <span v-for="hierarchy in folderHierarchies" :key="hierarchy.code">

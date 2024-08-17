@@ -19,6 +19,7 @@ const overlayVisible = ref<boolean>(false);
 const selectedFile = ref<CloudChestFile | null>(null);
 const fileURL = ref<string | null>(null);
 const previewable = ref<boolean>(false);
+const lastFolderCode = ref<string>("root");
 
 const eventEmitter = useEventEmitterStore();
 
@@ -94,6 +95,10 @@ function handlePreviewClose(): void {
   selectedFile.value = null;
   fileURL.value = null;
   previewable.value = false;
+}
+
+function handleFolderSelect(newFolderCode: string): void {
+  lastFolderCode.value = newFolderCode;
 }
 </script>
 
@@ -185,7 +190,11 @@ function handlePreviewClose(): void {
       </v-list-item>
       <v-divider class="my-2"></v-divider>
       <v-list v-model:selected="selectedNav">
-        <v-list-item link :value="0" to="/explorer/files">
+        <v-list-item v-if="lastFolderCode === 'root'" link :value="0" to="/explorer/files">
+          <v-icon class="mr-2">mdi-folder</v-icon>
+          Files
+        </v-list-item>
+        <v-list-item v-else link :value="0" :to="`/explorer/files/${lastFolderCode}`">
           <v-icon class="mr-2">mdi-folder</v-icon>
           Files
         </v-list-item>
@@ -238,7 +247,7 @@ function handlePreviewClose(): void {
 
     <v-main>
       <RouterView v-slot="{ Component }">
-        <component :is="Component" @file:select="handleFileChange" />
+        <component :is="Component" @file:select="handleFileChange" @folder:select="handleFolderSelect" />
       </RouterView>
     </v-main>
   </v-layout>
