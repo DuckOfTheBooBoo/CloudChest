@@ -4,7 +4,7 @@ import { formatDistance } from "date-fns";
 import { fileDetailFormatter } from "../utils/fileDetailFormatter";
 import Filename from "./Filename.vue";
 import { CloudChestFile } from "../models/file";
-import { trashFile, updateFile, downloadFile, getThumbnailBase64 } from "../utils/filesApi";
+import { trashFile, updateFile, downloadFile } from "../utils/filesApi";
 const props = defineProps<{
   file: CloudChestFile
 }>();
@@ -15,7 +15,6 @@ const emit = defineEmits<{
 
 const file = props.file;
 const fileDetailDialog = ref(false);
-const thumbnailBase64 = ref<string>('data:image/jpeg;base64,');
 
 interface MimeTypeToCategoryMap {
   [mimeType: string]: string;
@@ -91,11 +90,6 @@ async function getFileURL(): Promise<void> {
   }
 }
 
-onMounted(async () => {
-  if (file.FileType.includes('image/') || file.FileType.includes('video/')) {
-    thumbnailBase64.value = await getThumbnailBase64(file.ID);
-  }
-});
 </script>
 
 <template>
@@ -109,7 +103,7 @@ onMounted(async () => {
         <div class="tw-h-[100px] tw-flex tw-items-center tw-justify-center tw-text-4xl" v-if="!file.FileType.includes('image/') && !file.FileType.includes('video/')">
           <v-icon>{{ categoryToMDIIcon[mimeTypeToCategoryMap[file.FileType]] }}</v-icon>
         </div>
-        <v-img v-else height="100" :src="thumbnailBase64" cover alt="No thumbnail"></v-img>
+        <v-img v-else height="100" :src="`/api/files/${file.ID}/thumbnail`" cover alt="No thumbnail"></v-img>
 
         <v-card-item>
           <div class="tw-flex tw-flex-row tw-h-full tw-w-full tw-items-center tw-justify-between">
