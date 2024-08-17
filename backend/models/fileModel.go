@@ -13,5 +13,5 @@ type File struct {
 	IsFavorite    bool       `gorm:"not null;default:0"`
 	IsPreviewable bool       `gorm:"not null;default:0"`
 	Folder        *Folder    `gorm:"foreignKey:FolderID"`
-	Thumbnail     *Thumbnail `gorm:"foreignKey:FileID"`
+	Thumbnail     *Thumbnail `gorm:"foreignKey:FileID;constraint:OnDelete:CASCADE;"`
 }

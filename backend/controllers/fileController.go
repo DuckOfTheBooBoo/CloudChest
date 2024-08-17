@@ -3,6 +3,7 @@ package controllers
 import (
 	"context"
 	"errors"
+	"fmt"
 	"log"
 	"net/http"
 	"net/url"
@@ -73,112 +74,152 @@ func FileDelete(c *gin.Context) {
 	userClaim := c.MustGet("userClaims").(*utils.UserClaims)
 	fileID := c.Param("fileID")
 
+	
 	var user models.User
-	err := db.Where("id = ?", userClaim.ID).First(&user).Error
-	if err != nil {
-		c.JSON(http.StatusNotFound, gin.H{
-			"error": "User not found",
-		})
+	if err := db.Where("id = ?", userClaim.ID).First(&user).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "User not found"})
 		return
 	}
 
-	var file models.File
-
-	// Check if user wants to trash or permanently delete
 	isTrashDelete := c.DefaultQuery("trash", "true") == "true"
+	isPruneAll := c.DefaultQuery("pruneAll", "false") == "true"
+	
+	if fileID == "" && !isTrashDelete {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "File ID is required"})
+		return
+	}
+
+	if isTrashDelete && isPruneAll {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Cannot use trash can and prune all at the same time."})
+		return
+	}
+
 	// PERMANENT DELETE
 	if !isTrashDelete {
-		if err = db.Unscoped().Where("id = ? AND user_id = ?", fileID, userClaim.ID).Preload("Thumbnail").First(&file).Error; err != nil {
-			c.JSON(http.StatusNotFound, gin.H{
-				"error": "File not found",
-			})
+		var file models.File
+		if err := db.Unscoped().Where("id = ? AND user_id = ?", fileID, userClaim.ID).Preload("Thumbnail").First(&file).Error; err != nil {
+			c.JSON(http.StatusNotFound, gin.H{"error": "File not found"})
 			return
 		}
 
-		// Delete Thumbnail
-		if file.Thumbnail != nil {
-			// DELETE FROM MINIO
-			if err := minioClient.RemoveObject(ctx, user.MinioBucket, file.Thumbnail.FilePath, minio.RemoveObjectOptions{}); err != nil {
-				c.Status(http.StatusInternalServerError)
-				log.Println("Failed to delete thumbnail from MinIO: ", err.Error())
-				return
-			}
-
-			if err := db.Unscoped().Model(&file).Association("Thumbnail").Unscoped().Clear(); err != nil {
-				c.Status(http.StatusInternalServerError)
-				log.Println("Failed to delete thumbnail from database: ", err.Error())
-				return
-			}
-		}
-
-		// Delete HLS segments and master playlist
-		if file.IsPreviewable && strings.HasPrefix(file.FileType, "video/") {
-			objectsCh := make(chan minio.ObjectInfo)
-
-			go func() {
-				defer close(objectsCh)
-				// List all objects from a bucket-name with a matching prefix.
-				for object := range minioClient.ListObjects(ctx, user.MinioBucket, minio.ListObjectsOptions{
-					Prefix: "hls/" + file.FileCode,
-					Recursive: true,
-				}) {
-					if object.Err != nil {
-						log.Fatalln(object.Err)
-					}
-
-					if strings.HasSuffix(object.Key, ".m3u8") || strings.HasSuffix(object.Key, ".ts") {
-						objectsCh <- object
-					}
-				}
-			}()
-
-			for rErr := range minioClient.RemoveObjects(ctx, user.MinioBucket, objectsCh, minio.RemoveObjectsOptions{}) {
-				log.Println("Error detected during deletion: ", rErr)
-				c.Status(http.StatusInternalServerError)
-				return
-			}
-		}
-
-		// DELETE FROM MINIO
-		if err := minioClient.RemoveObject(ctx, user.MinioBucket, "/"+file.FileCode, minio.RemoveObjectOptions{}); err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{
-				"error": "Failed to delete file",
-			})
-			log.Println(err.Error())
+		if err := deleteFile(db, minioClient, ctx, file, user.MinioBucket); err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to delete file"})
+			log.Println("Error during file deletion: ", err.Error())
 			return
 		}
-
-		err = db.Unscoped().Delete(&file).Error
-		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{
-				"error": "Failed to delete file",
-			})
-			log.Println(err.Error())
-			return
-		}
-
 		c.Status(http.StatusOK)
 		return
 	}
 
+	// SOFT DELETE
+	var file models.File
 	if err := db.Where("id = ? AND user_id = ?", fileID, userClaim.ID).First(&file).Error; err != nil {
-		c.JSON(http.StatusNotFound, gin.H{
-			"error": "File not found",
-		})
+		c.JSON(http.StatusNotFound, gin.H{"error": "File not found"})
 		return
 	}
 
-	// Soft delete the file
 	if err := db.Delete(&file).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"error": "Failed to delete file",
-		})
-		log.Println(err.Error())
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to delete file"})
+		log.Println("Error during soft deletion: ", err.Error())
 		return
 	}
 
 	c.Status(http.StatusOK)
 }
+
+func FileDeleteAll(c *gin.Context) {
+	ctx := context.Background()
+	db := c.MustGet("db").(*gorm.DB)
+	minioClient := c.MustGet("minio").(*minio.Client)
+	userClaim := c.MustGet("userClaims").(*utils.UserClaims)
+	
+	var user models.User
+	if err := db.Where("id = ?", userClaim.ID).First(&user).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "User not found"})
+		return
+	}
+
+	if err := deleteAllFilesForUser(db, minioClient, ctx, userClaim.ID, user.MinioBucket); err != nil {
+		c.Status(http.StatusInternalServerError)
+		log.Println("Error during pruning all files: ", err.Error())
+		return
+	}	
+	
+	c.Status(http.StatusOK)
+}
+
+func deleteAllFilesForUser(db *gorm.DB, minioClient *minio.Client, ctx context.Context, userID uint, bucket string) error {
+	var deletedFiles []models.File
+	if err := db.Unscoped().Preload("Thumbnail").Where("user_id = ? AND deleted_at IS NOT NULL", userID).Find(&deletedFiles).Error; err != nil {
+		return err
+	}
+
+	for _, file := range deletedFiles {
+		if err := deleteFile(db, minioClient, ctx, file, bucket); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func deleteFile(db *gorm.DB, minioClient *minio.Client, ctx context.Context, file models.File, bucket string) error {
+	// Delete Thumbnail
+	if file.Thumbnail != nil {
+		if err := minioClient.RemoveObject(ctx, bucket, file.Thumbnail.FilePath, minio.RemoveObjectOptions{}); err != nil {
+			return fmt.Errorf("failed to delete thumbnail from MinIO: %w", err)
+		}
+		if err := db.Unscoped().Delete(&file.Thumbnail).Error; err != nil {
+			return fmt.Errorf("failed to delete thumbnail from database: %w", err)
+		}
+	}
+
+	// Delete HLS segments and master playlist
+	if file.IsPreviewable && strings.HasPrefix(file.FileType, "video/") {
+		if err := deleteHLSFiles(minioClient, ctx, bucket, file.FileCode); err != nil {
+			return fmt.Errorf("failed to delete HLS files: %w", err)
+		}
+	}
+
+	// DELETE FROM MINIO
+	if err := minioClient.RemoveObject(ctx, bucket, file.FileCode, minio.RemoveObjectOptions{}); err != nil {
+		return fmt.Errorf("failed to delete file from MinIO: %w", err)
+	}
+
+	// DELETE FROM DB
+	if err := db.Unscoped().Delete(&file).Error; err != nil {
+		return fmt.Errorf("failed to delete file from database: %w", err)
+	}
+
+	return nil
+}
+
+func deleteHLSFiles(minioClient *minio.Client, ctx context.Context, bucket, fileCode string) error {
+	objectsCh := make(chan minio.ObjectInfo)
+
+	go func() {
+		defer close(objectsCh)
+		for object := range minioClient.ListObjects(ctx, bucket, minio.ListObjectsOptions{
+			Prefix:    "hls/" + fileCode,
+			Recursive: true,
+		}) {
+			if object.Err != nil {
+				log.Println("Error listing HLS files: ", object.Err)
+				continue
+			}
+			if strings.HasSuffix(object.Key, ".m3u8") || strings.HasSuffix(object.Key, ".ts") {
+				objectsCh <- object
+			}
+		}
+	}()
+
+	for rErr := range minioClient.RemoveObjects(ctx, bucket, objectsCh, minio.RemoveObjectsOptions{}) {
+		if rErr.Err != nil {
+			return fmt.Errorf("error detected during HLS file deletion: %w", rErr.Err)
+		}
+	}
+	return nil
+}
+
 
 func FileUpdate(c *gin.Context) {
 	db := c.MustGet("db").(*gorm.DB)
