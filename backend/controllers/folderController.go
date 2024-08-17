@@ -1,8 +1,10 @@
 package controllers
 
 import (
+	"bytes"
 	"context"
 	"errors"
+	"fmt"
 	"io"
 	"log"
 	"net/http"
@@ -240,16 +242,6 @@ func FolderContentsCreate(c *gin.Context) {
 			newFile.IsPreviewable = true
 		}
 
-		err = db.Create(&newFile).Error
-
-		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{
-				"error": "Failed to create file",
-			})
-			log.Println(err.Error())
-			return
-		}
-
 		// UPLOAD FILE TO MINIO
 		// Read the file
 		uploadedFile, err := file.Open()
@@ -260,21 +252,43 @@ func FolderContentsCreate(c *gin.Context) {
 			log.Println(err.Error())
 			return
 		}
-		defer uploadedFile.Close()
-
+		
+		// Stuf happens, uploadedFile have a body length of 0? It went well until I pass it into minioClient for uploading to the bucket. The current workaround is to convert it into []byte regardless its mime type
 		// Prepare []byte of the uploded file in case its a media (image or video) file. Else let it collected by garbage collector
 		var uploadedFileBytes []byte
-		if strings.HasPrefix(newFile.FileType, "image/") || strings.HasPrefix(newFile.FileType, "video/") {
-			uploadedFileBytes, err = io.ReadAll(uploadedFile)
-			if err != nil {
-				log.Printf("Error while reading uploaded file: %v", err)
-				return
-			}
+		uploadedFileBytes, err = io.ReadAll(uploadedFile)
+		if err != nil {
+			log.Printf("Error while reading uploaded file: %v", err)
+			return
 		}
-
+		uploadedFile.Close()
+		
 		filePath := "/" + fileCode.String()
 
-		_, err = minioClient.PutObject(ctx, user.MinioBucket, filePath, uploadedFile, file.Size, minio.PutObjectOptions{ContentType: file.Header.Get("Content-Type")})
+		// Use transaction, PutObject to minio could lead to an error. If it does, we can't let any changes happen in the database
+		err = db.Transaction(func(tx *gorm.DB) error {
+			// Upload the file to minio first
+			_, err = minioClient.PutObject(ctx, user.MinioBucket, filePath, bytes.NewReader(uploadedFileBytes), file.Size, minio.PutObjectOptions{ContentType: file.Header.Get("Content-Type")})
+			if err != nil {
+				return fmt.Errorf("error while uploading file to MinIO: %v", err)
+			}
+
+			if err := db.Create(&newFile).Error; err != nil {
+				return fmt.Errorf("error while creating file in database: %v", err)
+			}
+
+			return nil
+		})
+		
+		
+		if err != nil {
+			log.Println(err.Error())
+			c.JSON(http.StatusInternalServerError, gin.H{
+				"error": "Failed to create file",
+			})
+			return
+		}
+
 
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{
