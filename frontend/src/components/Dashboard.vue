@@ -51,9 +51,10 @@ async function logout(): Promise<void> {
 
 async function uploadFile(_: Event): Promise<void> {
   const folderCode: string = route.params.code ? route.params.code as string : 'root';
-  const newFile: File = file.value as File;
-  axiosManager.addUploadRequest(newFile, folderCode);
-  file.value = null;
+  if (file.value) {
+    axiosManager.addUploadRequest(file.value, folderCode);
+    file.value = null;
+  }
   uploadFileDialog.value = false;
 }
 
