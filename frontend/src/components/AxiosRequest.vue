@@ -1,8 +1,9 @@
 <script setup lang="ts">
 import Filename from "./Filename.vue";
 import type RequestData from "../models/requestData";
-import { ref, watch, onUpdated } from "vue";
+import { ref, watch } from "vue";
 import { useAxiosManagerStore } from "../stores/axiosManagerStore.ts";
+import type { AxiosResponse } from "axios";
 
 const props = defineProps<{
     request: RequestData;
@@ -19,6 +20,7 @@ type State = typeof UPLOADING | typeof CANCELLED | typeof COMPLETED | typeof FAI
 const state = ref<State>(UPLOADING);
 const visProgress = ref<boolean>(true);
 const visIcon = ref<boolean>(false);
+const iconColor = ref<string>("");
 
 const iconState = ref<string>("mdi-close-circle-outline");
 
@@ -57,31 +59,34 @@ const onLeave = (): void => {
     visIcon.value = false;
 }
 
-watch(() => props.request.progress, () => {
-    if (props.request.progress >= 100) {
-        state.value = COMPLETED;
-        visProgress.value = false;
-        visIcon.value = true;
-    }
-})
-
 watch(() => state.value, () => {
+    visProgress.value = false;
+    visIcon.value = true;
     switch(state.value) {
         case COMPLETED:
             iconState.value = "mdi-check-circle";
+            iconColor.value = "success";
             break;
         case CANCELLED:
             iconState.value = "mdi-close-circle";
+            iconColor.value = "error";
             break;
         case FAILED:
-            iconState.value = "mdi-alret-circle";
+            iconState.value = "mdi-alert-circle";
+            iconColor.value = "warning";
             break;
     }
 })
 
-onUpdated(() => {
-    console.log(props)
-})
+props.request.request.
+    then((resp: AxiosResponse) => {
+        if (resp.status === 201) {
+            state.value = COMPLETED;
+        }
+    })
+    .catch(_ => {
+        state.value = FAILED;
+    })
 </script>
 
 <template>
@@ -89,7 +94,7 @@ onUpdated(() => {
         <Filename :filename="request.filename" class="" />
         <div>
             <v-progress-circular @mouseover="onHover" v-if="state === UPLOADING && visProgress" :size="20" :model-value="request.progress" id="progress-circular" ></v-progress-circular>
-            <v-icon v-else-if="state === CANCELLED || state === FAILED || state === COMPLETED || visIcon" @mouseleave="onLeave" @click="iconAction" :icon="iconState"></v-icon>
+            <v-icon v-else-if="state === CANCELLED || state === FAILED || state === COMPLETED || visIcon" @mouseleave="onLeave" @click="iconAction" :icon="iconState" :color="iconColor"></v-icon>
         </div>
     </v-card-text>
     <v-divider></v-divider>
