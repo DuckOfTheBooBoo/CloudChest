@@ -41,8 +41,13 @@ export const useAxiosManagerStore = defineStore("axiosManager", {
       this.ongoingRequests.push(requestData);
 
       request
-        .then(() => this.eventEmitter.eventEmitter.emit(FILE_UPDATED))
-        .catch(() => this.eventEmitter.eventEmitter.emit(FILE_UPDATED))
+        .then((resp) => {
+          console.log(resp)
+          if (resp.status === 201) {
+            this.eventEmitter.eventEmitter.emit(FILE_UPDATED)
+          }
+        })
+        .catch(err => console.error(err))
       return requestData;
     },
 
