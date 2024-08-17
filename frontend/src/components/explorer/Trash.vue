@@ -53,7 +53,7 @@ async function pruneAllFiles(): Promise<void> {
       <span class="tw-text-left tw-font-semibold">All files in trash will be deleted permanently in 30 days.</span>
       <v-tooltip text="Delete all files permanently" location="bottom">
         <template v-slot:activator="{ props: tltpProps }">
-          <v-btn icon="mdi-trash-can-outline" color="red" density="comfortable" variant="text" v-bind="tltpProps"
+          <v-btn icon="mdi-trash-can-outline" color="error" density="comfortable" variant="text" v-bind="tltpProps"
             @click="confirmDialogVisible = true"></v-btn>
         </template>
       </v-tooltip>
