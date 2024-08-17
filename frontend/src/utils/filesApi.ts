@@ -61,6 +61,17 @@ export async function trashFile(file: CloudChestFile, isTrashFile: boolean): Pro
   }
 }
 
+export async function emptyTrashCan(): Promise<void> {
+  const url: string = `/api/files`;
+  try {
+    await axios.delete(url);
+    const eventEmitter = useEventEmitterStore();
+    eventEmitter.eventEmitter.emit(FILE_UPDATED);
+  } catch (error) {
+    console.error(error);
+  }
+}
+
 export async function updateFile(file: CloudChestFile, isRestoreFile: boolean): Promise<boolean> {
   const body: {
     file_name: string,
