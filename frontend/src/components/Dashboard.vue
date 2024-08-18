@@ -1,14 +1,16 @@
 <script setup lang="ts">
 import axios from "axios";
-import { ref, mergeProps, inject } from "vue";
+import { ref, mergeProps, provide } from "vue";
 import { useRouter, useRoute } from "vue-router";
 import { useEventEmitterStore } from "../stores/eventEmitterStore"
 import { FILE_UPDATED } from "../constants"
 import { createNewFolder } from "../utils/foldersApi";
 import { CloudChestFile } from "../models/file";
-import { downloadFile } from "../utils/filesApi";
+import { downloadFile, patchFile } from "../utils/filesApi";
 import AxiosManager from "./AxiosManager.vue";
 import {useAxiosManagerStore} from "../stores/axiosManagerStore";
+import FolderListNavigator from "./FolderListNavigator.vue";
+import type Folder from "../models/folder";
 
 const selectedNav = ref(0);
 const router = useRouter();
@@ -20,6 +22,8 @@ const selectedFile = ref<CloudChestFile | null>(null);
 const fileURL = ref<string | null>(null);
 const previewable = ref<boolean>(false);
 const lastFolderCode = ref<string>("root");
+const fileListNavDialog = ref<boolean>(false);
+const moveFilePlaceholder = ref<CloudChestFile | null>(null);
 
 const eventEmitter = useEventEmitterStore();
 
@@ -101,9 +105,40 @@ function handlePreviewClose(): void {
 function handleFolderSelect(newFolderCode: string): void {
   lastFolderCode.value = newFolderCode;
 }
+
+async function handleFileNavigatorSelect(folder: Folder | null): Promise<void> {
+  if (folder && moveFilePlaceholder.value) {
+    fileListNavDialog.value = false;
+
+    const moveRequest: { folder_code: string } = {
+      folder_code: folder.Code,
+    }
+
+    await patchFile(moveFilePlaceholder.value, moveRequest);
+  }
+}
+
+const showFileNavigatorDialog = (file: CloudChestFile): void => {
+  fileListNavDialog.value = true;
+  moveFilePlaceholder.value = file;
+}
+
+provide('showFileNavigatorDialog', showFileNavigatorDialog);
 </script>
 
 <template>
+  <!-- File Navigator Dialog -->
+  <v-dialog
+    v-model="fileListNavDialog"
+    scrollable 
+    persistent
+    max-width="500px"
+    max-height="90%"
+    transition="dialog-transition"
+  >
+    <FolderListNavigator @nav:cancel="fileListNavDialog = false" @nav:move="handleFileNavigatorSelect" />
+  </v-dialog>
+
   <v-layout class="rounded rounded-md tw-relative">
     <AxiosManager v-if="axiosManager.ongoingRequests.length > 0" class="tw-fixed tw-box-border tw-bottom-0 tw-right-0 tw-z-10" />
     <v-overlay v-model="overlayVisible" scroll-strategy="block">

@@ -5,7 +5,6 @@ import router from './router'
 import axios from 'axios'
 import 'media-chrome'
 import 'hls-video-element'
-import AxiosRequestManager from "./services/axiosRequestManager";
 
 // Pinia
 import { createPinia } from 'pinia'

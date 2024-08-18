@@ -1,9 +1,9 @@
 <script setup lang="ts">
-import { ref, onMounted } from "vue";
+import { ref, onMounted, inject } from "vue";
 import { formatDistance } from "date-fns";
 import { fileDetailFormatter } from "../utils/fileDetailFormatter";
 import Filename from "./Filename.vue";
-import { CloudChestFile } from "../models/file";
+import { type CloudChestFile } from "../models/file";
 import { trashFile, updateFile, downloadFile } from "../utils/filesApi";
 const props = defineProps<{
   file: CloudChestFile
@@ -15,6 +15,8 @@ const emit = defineEmits<{
 
 const file = props.file;
 const fileDetailDialog = ref(false);
+
+const showFileNavigatorDialog: ((file: CloudChestFile) => void) | undefined = inject('showFileNavigatorDialog')
 
 interface MimeTypeToCategoryMap {
   [mimeType: string]: string;
@@ -90,6 +92,10 @@ async function getFileURL(): Promise<void> {
   }
 }
 
+function moveFile(): void {
+  showFileNavigatorDialog?.(file);
+}
+
 </script>
 
 <template>
@@ -115,6 +121,9 @@ async function getFileURL(): Promise<void> {
             <v-list>
               <v-list-item @click="getFileURL">
                 <v-icon>mdi-download</v-icon> Download
+              </v-list-item>
+              <v-list-item @click="moveFile">
+                <v-icon>mdi-folder-arrow-right</v-icon> <span class="tw-ml-1">Move to</span>
               </v-list-item>
               <v-list-item @click="() => { }">
                 <!-- DETAILS DIALOG -->

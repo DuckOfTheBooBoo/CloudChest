@@ -4,6 +4,7 @@ export default interface Folder {
     UserID: number;
     Code: string;
     Name: string;
+    HasChild: boolean;
     CreatedAt: Date;
     UpdatedAt: Date;
     DeletedAt: Date | null;

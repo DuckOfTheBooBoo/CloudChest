@@ -3,6 +3,7 @@ import { CloudChestFile, type FileResponse } from "../models/file";
 import { type PresignedURL } from "../models/presignedUrl";
 import { useEventEmitterStore } from "../stores/eventEmitterStore";
 import { FILE_UPDATED } from "../constants";
+import { type FilePatchRequest } from "../models/requestModel";
 
 export async function getFilesFromCode(folderCode: string): Promise<CloudChestFile[]> {
   try {
@@ -84,6 +85,19 @@ export async function updateFile(file: CloudChestFile, isRestoreFile: boolean): 
 
   try {
     await axios.put(`/api/files/${file.ID}`, body);
+    const eventEmitter = useEventEmitterStore();
+    eventEmitter.eventEmitter.emit(FILE_UPDATED);
+    return true;
+  } catch (error) {
+    console.error(error);
+  }
+
+  return false;
+}
+
+export async function patchFile(file: CloudChestFile, patchRequest: FilePatchRequest): Promise<boolean> {
+  try {
+    await axios.patch(`/api/files/${file.ID}`, patchRequest);
     const eventEmitter = useEventEmitterStore();
     eventEmitter.eventEmitter.emit(FILE_UPDATED);
     return true;
