@@ -161,6 +161,15 @@ func FolderCreate(c *gin.Context) {
 		return
 	}
 
+	parentFolder.HasChild = true
+
+	if err := db.Save(&parentFolder).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error": "Failed to update parent folder.",
+		})
+		return
+	}
+
 	c.JSON(http.StatusCreated, gin.H{
 		"folder": newFolder,
 	})

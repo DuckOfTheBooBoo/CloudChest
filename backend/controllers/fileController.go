@@ -74,7 +74,6 @@ func FileDelete(c *gin.Context) {
 	userClaim := c.MustGet("userClaims").(*utils.UserClaims)
 	fileID := c.Param("fileID")
 
-	
 	var user models.User
 	if err := db.Where("id = ?", userClaim.ID).First(&user).Error; err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "User not found"})
@@ -83,7 +82,7 @@ func FileDelete(c *gin.Context) {
 
 	isTrashDelete := c.DefaultQuery("trash", "true") == "true"
 	isPruneAll := c.DefaultQuery("pruneAll", "false") == "true"
-	
+
 	if fileID == "" && !isTrashDelete {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "File ID is required"})
 		return
@@ -132,7 +131,7 @@ func FileDeleteAll(c *gin.Context) {
 	db := c.MustGet("db").(*gorm.DB)
 	minioClient := c.MustGet("minio").(*minio.Client)
 	userClaim := c.MustGet("userClaims").(*utils.UserClaims)
-	
+
 	var user models.User
 	if err := db.Where("id = ?", userClaim.ID).First(&user).Error; err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "User not found"})
@@ -143,8 +142,8 @@ func FileDeleteAll(c *gin.Context) {
 		c.Status(http.StatusInternalServerError)
 		log.Println("Error during pruning all files: ", err.Error())
 		return
-	}	
-	
+	}
+
 	c.Status(http.StatusOK)
 }
 
@@ -220,7 +219,6 @@ func deleteHLSFiles(minioClient *minio.Client, ctx context.Context, bucket, file
 	return nil
 }
 
-
 func FileUpdate(c *gin.Context) {
 	db := c.MustGet("db").(*gorm.DB)
 	userClaim := c.MustGet("userClaims").(*utils.UserClaims)
@@ -288,6 +286,104 @@ func FileUpdate(c *gin.Context) {
 	}
 
 	file.IsFavorite = fileUpdateBody.IsFavorite
+
+	if fileUpdateBody.Restore {
+		if err := db.Unscoped().Model(&file).Update("deleted_at", nil).Error; err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{
+				"error": "Failed to restore file",
+			})
+			log.Println(err.Error())
+			return
+		}
+	}
+
+	if err := db.Save(&file).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error": "Failed to update file",
+		})
+		log.Println(err.Error())
+		return
+	}
+
+	c.JSON(http.StatusOK, file)
+}
+
+func FilePatch(c *gin.Context) {
+	db := c.MustGet("db").(*gorm.DB)
+	userClaim := c.MustGet("userClaims").(*utils.UserClaims)
+	fileID := c.Param("fileID")
+
+	validate := validator.New()
+
+	var fileUpdateBody struct {
+		FileName         string `json:"file_name"`
+		FolderCode string `validate:"ascii" json:"folder_code"`
+		IsFavorite       bool   `validate:"boolean" json:"is_favorite"`
+		Restore          bool   `validate:"boolean" json:"is_restore"`
+	}
+
+	if err := c.BindJSON(&fileUpdateBody); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": "No request body (JSON) included.",
+		})
+		return
+	}
+	
+	if err := validate.Struct(fileUpdateBody); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": err.Error(),
+		})
+		log.Println(fileUpdateBody)
+		return
+	}
+
+	// Find file
+	var file models.File
+	if !fileUpdateBody.Restore {
+		if err := db.Where("id = ? AND user_id = ?", fileID, userClaim.ID).First(&file).Error; err != nil {
+			c.JSON(http.StatusNotFound, gin.H{
+				"error": "File not found",
+			})
+			log.Println(err.Error())
+			return
+		}
+	} else {
+		if err := db.Unscoped().Where("id = ? AND user_id = ?", fileID, userClaim.ID).First(&file).Error; err != nil {
+			c.JSON(http.StatusNotFound, gin.H{
+				"error": "File not found",
+			})
+			log.Println(err.Error())
+			return
+		}
+	}
+
+	if fileUpdateBody.FileName != "" {
+		file.FileName = fileUpdateBody.FileName
+	}
+
+	if fileUpdateBody.FolderCode != "" {
+		var parentFolder models.Folder
+		err := db.Where("user_id = ? AND code = ?", userClaim.ID, fileUpdateBody.FolderCode).First(&parentFolder).Error;
+		if err != nil {
+			if err == gorm.ErrRecordNotFound {
+				c.JSON(http.StatusNotFound, gin.H{
+					"error": "Parent folder not found",
+				})
+				log.Println(err.Error())
+				return
+			}
+
+			c.Status(http.StatusInternalServerError)
+			log.Printf("Failed to find parent folder: %v", err)
+			return
+		} 
+
+		file.FolderID = parentFolder.ID
+	}
+
+	if file.IsFavorite != fileUpdateBody.IsFavorite {
+		file.IsFavorite = fileUpdateBody.IsFavorite
+	}
 
 	if fileUpdateBody.Restore {
 		if err := db.Unscoped().Model(&file).Update("deleted_at", nil).Error; err != nil {
