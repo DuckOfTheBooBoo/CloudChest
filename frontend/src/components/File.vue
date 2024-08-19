@@ -1,10 +1,12 @@
 <script setup lang="ts">
-import { ref, onMounted, inject } from "vue";
+import { ref, inject } from "vue";
 import { formatDistance } from "date-fns";
 import { fileDetailFormatter } from "../utils/fileDetailFormatter";
 import Filename from "./Filename.vue";
 import { type CloudChestFile } from "../models/file";
-import { trashFile, updateFile, downloadFile } from "../utils/filesApi";
+import { trashFile, updateFile, downloadFile, patchFile } from "../utils/filesApi";
+import { type FilePatchRequest } from "../models/requestModel";
+
 const props = defineProps<{
   file: CloudChestFile
 }>();
@@ -15,6 +17,7 @@ const emit = defineEmits<{
 
 const file = props.file;
 const fileDetailDialog = ref(false);
+const renameFilePlaceholder = ref<string | undefined>(undefined);
 
 const showFileNavigatorDialog: ((file: CloudChestFile) => void) | undefined = inject('showFileNavigatorDialog')
 
@@ -84,6 +87,16 @@ async function pruneFile(): Promise<void> {
   }
 }
 
+async function renameFile(): Promise<void> {
+  const originalExtension: string | undefined = props.file.FileName.split('.').pop();
+  const newFilename: string = renameFilePlaceholder.value + ('.' + originalExtension) ?? "";
+  const requestBody: FilePatchRequest = {
+    file_name: newFilename,
+  }
+  await patchFile(props.file, requestBody)
+  renameFilePlaceholder.value = undefined
+}
+
 async function getFileURL(): Promise<void> {
   const resp = await downloadFile(file.ID)
   if (resp) {
@@ -95,6 +108,10 @@ async function getFileURL(): Promise<void> {
 function moveFile(): void {
   showFileNavigatorDialog?.(file);
 }
+
+const rules = {
+  required: (value: string) => !!value || 'Filename cannot be empty',
+};
 
 </script>
 
@@ -119,12 +136,51 @@ function moveFile(): void {
               <v-btn density="compact" icon="mdi-dots-vertical" variant="plain" v-bind="props"></v-btn>
             </template>
             <v-list>
+
+              <!-- RENAME FILE -->
+              <v-list-item @click="() => {renameFilePlaceholder = file.FileName.slice(0, -4)}">
+                <v-icon>mdi-pencil</v-icon> Rename
+
+                <v-dialog activator="parent" max-width="500px">
+                  <template v-slot:default="{ isActive }">
+                    <v-card>
+                      <v-card-title title>
+                        Rename {{ file.FileName }}
+                      </v-card-title>
+
+                      <v-card-item>
+                        <v-text-field
+                          v-model="renameFilePlaceholder"
+                          label="New filename"
+                          single-line
+                          :rules="[rules.required]"
+                        ></v-text-field>
+                      </v-card-item>
+
+                      <v-card-actions>
+                        <v-btn @click="isActive.value = false">Cancel</v-btn>
+                        <v-btn variant="outlined" @click="() => {
+                          isActive.value = false
+                          renameFile();
+                        }">Rename</v-btn>
+                      </v-card-actions>
+                    </v-card>
+                  </template>
+                </v-dialog>
+
+              </v-list-item>
+
+              <!-- DOWNLOAD -->
               <v-list-item @click="getFileURL">
                 <v-icon>mdi-download</v-icon> Download
               </v-list-item>
+
+              <!-- MOVE FILE -->
               <v-list-item @click="moveFile">
                 <v-icon>mdi-folder-arrow-right</v-icon> <span class="tw-ml-1">Move to</span>
               </v-list-item>
+
+              <!-- FILE DETAILS DIALOG -->
               <v-list-item @click="() => { }">
                 <!-- DETAILS DIALOG -->
                 <v-dialog activator="parent" max-width="30rem" v-model="fileDetailDialog">
@@ -156,16 +212,24 @@ function moveFile(): void {
 
                 <v-icon>mdi-information-outline</v-icon> Details
               </v-list-item>
+
+              <!-- TOGGLE FAVORITE FILES -->
               <v-list-item @click="toggleFavorite" v-if="!file.DeletedAt">
                 <span v-if="!file.IsFavorite"><v-icon>mdi-star-outline</v-icon>Mark as favorite</span>
                 <span v-else><v-icon>mdi-star</v-icon>Unfavorite</span>
               </v-list-item>
+
+              <!-- DELETE FILE -->
               <v-list-item v-if="!file.DeletedAt" @click="trashFile(file, true)">
                 <v-icon>mdi-trash-can</v-icon> Delete
               </v-list-item>
+
+              <!-- RESTORE DELETED FILE -->
               <v-list-item v-else @click="restoreFile">
                 <v-icon>mdi-delete-restore</v-icon> Restore
               </v-list-item>
+
+              <!-- PERMANENTLY DELETE FILE -->
               <v-list-item v-if="file.DeletedAt" @click="() => { }">
                 <v-icon>mdi-delete-forever</v-icon> Prune
                 <v-dialog activator="parent" max-width="340">
