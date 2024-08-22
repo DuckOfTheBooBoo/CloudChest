@@ -4,13 +4,14 @@ import { ref, mergeProps, provide } from "vue";
 import { useRouter, useRoute } from "vue-router";
 import { useEventEmitterStore } from "../stores/eventEmitterStore"
 import { FILE_UPDATED } from "../constants"
-import { createNewFolder } from "../utils/foldersApi";
+import { createNewFolder, patchFolder } from "../utils/foldersApi";
 import { CloudChestFile } from "../models/file";
 import { downloadFile, patchFile } from "../utils/filesApi";
 import AxiosManager from "./AxiosManager.vue";
 import {useAxiosManagerStore} from "../stores/axiosManagerStore";
 import FolderListNavigator from "./FolderListNavigator.vue";
 import type Folder from "../models/folder";
+import isFolder from "../utils/isFolder";
 
 const selectedNav = ref(0);
 const router = useRouter();
@@ -23,7 +24,8 @@ const fileURL = ref<string | null>(null);
 const previewable = ref<boolean>(false);
 const lastFolderCode = ref<string>("root");
 const fileListNavDialog = ref<boolean>(false);
-const moveFilePlaceholder = ref<CloudChestFile | null>(null);
+const moveObjectPlaceholder = ref<CloudChestFile | Folder | null>(null);
+const blacklistedFolder = ref<Folder | undefined>();
 
 const eventEmitter = useEventEmitterStore();
 
@@ -107,20 +109,35 @@ function handleFolderSelect(newFolderCode: string): void {
 }
 
 async function handleFileNavigatorSelect(folder: Folder | null): Promise<void> {
-  if (folder && moveFilePlaceholder.value) {
+  console.log(folder);
+  if (folder && moveObjectPlaceholder.value) {
     fileListNavDialog.value = false;
 
-    const moveRequest: { folder_code: string } = {
-      folder_code: folder.Code,
+    // variable contains CloudChestFile
+    if (moveObjectPlaceholder.value instanceof CloudChestFile) {
+      const moveRequest: { folder_code: string } = {
+        folder_code: folder.Code,
+      }
+  
+      await patchFile(moveObjectPlaceholder.value, moveRequest);
+    } else if (isFolder(moveObjectPlaceholder.value)) {
+      // variable contains object that implements Folder interface
+      const moveRequest: { parent_folder_code: string } = {
+        parent_folder_code: folder.Code,
+      }
+  
+      await patchFolder(blacklistedFolder.value!.Code, moveRequest);
     }
-
-    await patchFile(moveFilePlaceholder.value, moveRequest);
   }
 }
 
-const showFileNavigatorDialog = (file: CloudChestFile): void => {
+const showFileNavigatorDialog = (file: CloudChestFile | Folder): void => {
   fileListNavDialog.value = true;
-  moveFilePlaceholder.value = file;
+  moveObjectPlaceholder.value = file;
+
+  if (isFolder(file)) {
+    blacklistedFolder.value = file;
+  }
 }
 
 provide('showFileNavigatorDialog', showFileNavigatorDialog);
@@ -136,7 +153,7 @@ provide('showFileNavigatorDialog', showFileNavigatorDialog);
     max-height="90%"
     transition="dialog-transition"
   >
-    <FolderListNavigator @nav:cancel="fileListNavDialog = false" @nav:move="handleFileNavigatorSelect" />
+    <FolderListNavigator :blacklistedFolder="blacklistedFolder" @nav:cancel="fileListNavDialog = false" @nav:move="handleFileNavigatorSelect" />
   </v-dialog>
 
   <v-layout class="rounded rounded-md tw-relative">

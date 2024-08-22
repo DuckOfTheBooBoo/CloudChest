@@ -1,11 +1,10 @@
 <script setup lang="ts">
-import { ref } from "vue";
+import { ref, inject } from "vue";
 import Folder from "../models/folder";
 import Filename from "./Filename.vue";
 import { patchFolder } from "../utils/foldersApi";
 import { type FolderPatchRequest } from "../models/requestModel";
 
-const menuVisible = ref<boolean>(false);
 const isHover = ref<boolean>(false);
 const renameFolderPlaceholder = ref<string | undefined>();
 const folderDetailDialog = ref<boolean>(false);
@@ -19,6 +18,8 @@ const emit = defineEmits<{
   (e: "folderCode:change", newFolderCode: string): void
 }>();
 
+const showFileNavigatorDialog: ((file: Folder) => void) | undefined = inject('showFileNavigatorDialog')
+
 const rules = {
   required: (value: string) => !!value || 'Folder name cannot be empty',
 };
@@ -28,6 +29,11 @@ async function renameFolder(): Promise<void> {
     folder_name: renameFolderPlaceholder.value
   }
   await patchFolder(props.folder.Code, request)
+}
+
+
+function moveFolder(): void {
+  showFileNavigatorDialog?.(props.folder)
 }
 </script>
 
@@ -78,13 +84,8 @@ async function renameFolder(): Promise<void> {
 
               </v-list-item>
 
-              <!-- DOWNLOAD -->
-              <v-list-item @click="() => {}">
-                <v-icon>mdi-download</v-icon> Download
-              </v-list-item>
-
               <!-- MOVE FILE -->
-              <v-list-item @click="() => {}">
+              <v-list-item @click="moveFolder">
                 <v-icon>mdi-folder-arrow-right</v-icon> <span class="tw-ml-1">Move to</span>
               </v-list-item>
 

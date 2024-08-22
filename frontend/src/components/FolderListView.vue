@@ -17,6 +17,7 @@ const isLoading = ref<boolean>(false);
 const folderList: Ref<Folder[]> = ref([] as Folder[]);
 
 const selectedFolder: Ref<Folder | null> | undefined = inject('selectedFolder');
+const blacklistedFolder: Ref<Folder | undefined> | undefined = inject('blacklistedFolder');
 
 async function fetchChildFolders(): Promise<void> {
     isLoading.value = true;
@@ -45,7 +46,7 @@ function handleNested(folder: Folder): void {
 </script>
 
 <template>
-    <div class="tw-flex tw-flex-col tw-my-1" v-bind="$attrs">
+    <div class="tw-flex tw-flex-col tw-my-1" v-bind="$attrs" v-if="blacklistedFolder && folder.Code !== blacklistedFolder?.Code">
         <div 
             :style="'margin-left: ' + level * 2 + 'rem'"
             class="tw-flex tw-justify-start tw-gap-3 tw-py-1 tw-rounded-lg hover:tw-bg-[#424242] tw-transition-colors tw-cursor-pointer"

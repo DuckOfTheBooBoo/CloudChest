@@ -4,10 +4,15 @@ import { getFolderList } from "../utils/foldersApi";
 import FolderListView from "./FolderListView.vue";
 import { onMounted, type Ref, ref, provide } from "vue";
 
+const props = defineProps<{blacklistedFolder?: Folder}>();
+
 const folders: Ref<Folder[]> = ref([] as Folder[]);
 const selectedFolder: Ref<Folder | null> = ref(null);
 
 provide('selectedFolder', selectedFolder);
+if (props.blacklistedFolder !== undefined) {
+    provide('blacklistedFolder', props.blacklistedFolder);
+}
 
 const emits = defineEmits<{
     (e: "nav:cancel"): void;
