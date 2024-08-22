@@ -103,6 +103,14 @@ func UserCreate(c *gin.Context) {
 func UserLogin(c *gin.Context) {
 	db := c.MustGet("db").(*gorm.DB)
 	validate := validator.New()
+	domain := c.Query("referer")
+
+	if domain == "" {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": "Referer domain is missing",
+		})
+		return
+	}
 
 	var loginBody struct {
 		Email    string `validate:"required,email"`
@@ -160,7 +168,7 @@ func UserLogin(c *gin.Context) {
 		return
 	}
 
-	c.SetCookie("token", accessToken, 60*60, "/", "localhost", false, true)
+	c.SetCookie("token", accessToken, 60*60, "/", domain, false, true)
 
 	c.JSON(http.StatusOK, gin.H{
 		"token": accessToken,
