@@ -11,6 +11,7 @@ func FolderRoutes(route *gin.RouterGroup) {
 	{	
 		folder.GET("", middlewares.JWTMiddleware(), controllers.FolderList)
 		folder.GET("/:code", middlewares.JWTMiddleware(), controllers.FolderList)
+		folder.PATCH("/:code", middlewares.JWTMiddleware(), controllers.FolderPatch)
 		folder.GET("/:code/files", middlewares.JWTMiddleware(), controllers.FolderContents)
 		folder.GET("/:code/folders", middlewares.JWTMiddleware(), controllers.FolderList)
 		folder.POST("/:code/files", middlewares.JWTMiddleware(), controllers.FolderContentsCreate)

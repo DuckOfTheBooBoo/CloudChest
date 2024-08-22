@@ -517,3 +517,79 @@ func FolderContents(c *gin.Context) {
 
 	c.JSON(http.StatusOK, files)
 }
+
+func FolderPatch(c *gin.Context) {
+	db := c.MustGet("db").(*gorm.DB)
+	userClaim := c.MustGet("userClaims").(*utils.UserClaims)
+	folderCode := c.Param("code")
+
+	validate := validator.New()
+
+	var folderUpdateBody struct {
+		FolderName       string `json:"folder_name"`
+		IsFavorite       bool   `validate:"boolean" json:"is_favorite"`
+		Restore          bool   `validate:"boolean" json:"is_restore"`
+	}
+
+	if err := c.BindJSON(&folderUpdateBody); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": "No request body (JSON) included.",
+		})
+		return
+	}
+	
+	if err := validate.Struct(folderUpdateBody); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": err.Error(),
+		})
+		log.Println(folderUpdateBody)
+		return
+	}
+
+	var folder models.Folder
+	if !folderUpdateBody.Restore {
+		if err := db.Where("code = ? AND user_id = ?", folderCode, userClaim.ID).First(&folder).Error; err != nil {
+			c.JSON(http.StatusNotFound, gin.H{
+				"error": "Folder not found",
+			})
+			log.Println(err.Error())
+			return
+		}
+	} else {
+		if err := db.Unscoped().Where("id = ? AND user_id = ?", folderCode, userClaim.ID).First(&folder).Error; err != nil {
+			c.JSON(http.StatusNotFound, gin.H{
+				"error": "Folder not found",
+			})
+			log.Println(err.Error())
+			return
+		}
+	}
+
+	if folderUpdateBody.FolderName != "" {
+		folder.Name = folderUpdateBody.FolderName
+	}
+
+	if folder.IsFavorite != folderUpdateBody.IsFavorite {
+		folder.IsFavorite = folderUpdateBody.IsFavorite
+	}
+
+	if folderUpdateBody.Restore {
+		if err := db.Unscoped().Model(&folder).Update("deleted_at", nil).Error; err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{
+				"error": "Failed to restore folder " + folder.Name,
+			})
+			log.Println(err.Error())
+			return
+		}
+	}
+
+	if err := db.Save(&folder).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error": "Failed to update folder " + folder.Name,
+		})
+		log.Println(err.Error())
+		return
+	}
+
+	c.JSON(http.StatusOK, folder)	
+}
