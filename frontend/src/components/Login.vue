@@ -52,7 +52,12 @@ const submit = handleSubmit(async (values) => {
     loading.value = true;
     const response = await axios.post<TokenResponse>(
       "/api/users/login",
-      body
+      body,
+      {
+        params: {
+          referer: window.location.hostname
+        }
+      }
     );
     if (response.status == 200) {
       localStorage.setItem("token", response.data.token);
