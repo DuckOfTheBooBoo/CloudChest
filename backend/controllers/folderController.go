@@ -529,6 +529,7 @@ func FolderPatch(c *gin.Context) {
 		FolderName       string `json:"folder_name"`
 		IsFavorite       bool   `validate:"boolean" json:"is_favorite"`
 		Restore          bool   `validate:"boolean" json:"is_restore"`
+		ParentFolderCode string `json:"parent_folder_code"`
 	}
 
 	if err := c.BindJSON(&folderUpdateBody); err != nil {
@@ -571,6 +572,19 @@ func FolderPatch(c *gin.Context) {
 
 	if folder.IsFavorite != folderUpdateBody.IsFavorite {
 		folder.IsFavorite = folderUpdateBody.IsFavorite
+	}
+
+	if folderUpdateBody.ParentFolderCode != "" {
+		var parentFolder models.Folder
+		if err := db.Where("code = ? AND user_id = ?", folderUpdateBody.ParentFolderCode, userClaim.ID).First(&parentFolder).Error; err != nil {
+			c.JSON(http.StatusNotFound, gin.H{
+				"error": "Folder not found",
+			})
+			log.Println(err.Error())
+			return
+		}
+
+		folder.ParentID = &parentFolder.ID
 	}
 
 	if folderUpdateBody.Restore {
