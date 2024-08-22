@@ -3,6 +3,7 @@ import type Folder from "../models/folder";
 import type FolderHierarchy from "../models/folderHierarchy";
 import { useEventEmitterStore } from "../stores/eventEmitterStore";
 import { FILE_UPDATED, FOLDER_UPDATED } from "../constants";
+import { type FolderPatchRequest } from "../models/requestModel";
 
 interface getFoldersResponse {
     folders: Folder[];
@@ -28,6 +29,20 @@ export async function createNewFolder(parentFolderCode: string, folderName: stri
         const response = await axios.post(`/api/folders/${parentFolderCode}/folders`, {
             "folder_name": folderName,
         });
+        const folder: Folder = response.data as Folder;
+        const eventEmitter = useEventEmitterStore();
+        eventEmitter.eventEmitter.emit(FOLDER_UPDATED);
+        return folder;
+    } catch (error) {
+        console.error(error);
+    }
+
+    return {} as Folder;
+}
+
+export async function patchFolder(folderCode: string, patchRequest: FolderPatchRequest): Promise<Folder> {
+    try {
+        const response = await axios.patch(`/api/folders/${folderCode}`, patchRequest);
         const folder: Folder = response.data as Folder;
         const eventEmitter = useEventEmitterStore();
         eventEmitter.eventEmitter.emit(FOLDER_UPDATED);

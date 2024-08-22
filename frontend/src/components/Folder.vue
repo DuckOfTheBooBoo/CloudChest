@@ -2,13 +2,15 @@
 import { ref } from "vue";
 import Folder from "../models/folder";
 import Filename from "./Filename.vue";
+import { patchFolder } from "../utils/foldersApi";
+import { type FolderPatchRequest } from "../models/requestModel";
 
 const menuVisible = ref<boolean>(false);
 const isHover = ref<boolean>(false);
-const renameFolderPlaceholder = ref<string | null>(null);
+const renameFolderPlaceholder = ref<string | undefined>();
 const folderDetailDialog = ref<boolean>(false);
 
-defineProps<{
+const props = defineProps<{
   folder: Folder;
   isSelected: boolean
 }>();
@@ -21,6 +23,12 @@ const rules = {
   required: (value: string) => !!value || 'Folder name cannot be empty',
 };
 
+async function renameFolder(): Promise<void> {
+  const request: FolderPatchRequest = {
+    folder_name: renameFolderPlaceholder.value
+  }
+  await patchFolder(props.folder.Code, request)
+}
 </script>
 
 <template>
@@ -33,15 +41,16 @@ const rules = {
         <v-icon class="tw-text-9xl !important">mdi-folder</v-icon>
         <div class="tw-w-full tw-flex tw-flex-row tw-justify-around">
           <Filename :filename="folder.Name" />
-          <v-menu v-if="isHover || menuVisible" location="bottom" :attach="true" close-delay="0" :no-click-animation="true">
+          <v-menu location="bottom" :attach="true" close-delay="0" :no-click-animation="true">
             <template v-slot:activator="{ props }">
-              <v-btn v-show="isHover || menuVisible" density="compact" icon="mdi-dots-vertical" variant="text"
-                size="small" @click="menuVisible = true" @blur="menuVisible = false" v-bind="props"></v-btn>
+              <v-btn density="compact" icon="mdi-dots-vertical" variant="text"
+                size="small" v-bind="props"></v-btn>
             </template>
             <v-list>
 
               <!-- RENAME FILE -->
-              <v-list-item @click="() => { renameFolderPlaceholder = folder.Name }">
+              <v-list-item @click="() => {
+                renameFolderPlaceholder = folder.Name }">
                 <v-icon>mdi-pencil</v-icon> Rename
 
                 <v-dialog activator="parent" max-width="500px">
@@ -60,6 +69,7 @@ const rules = {
                         <v-btn @click="isActive.value = false">Cancel</v-btn>
                         <v-btn variant="outlined" @click="() => {
                           isActive.value = false
+                          renameFolder()
                         }">Rename</v-btn>
                       </v-card-actions>
                     </v-card>

@@ -5,6 +5,7 @@ export default interface Folder {
     Code: string;
     Name: string;
     HasChild: boolean;
+    IsFavorite: boolean;
     CreatedAt: Date;
     UpdatedAt: Date;
     DeletedAt: Date | null;
