@@ -30,4 +30,24 @@ onMounted(() => {
   <p ref="pTag" :class="pClass" v-bind="$attrs">{{ props.filename }}</p>
 </template>
 
-<style scoped></style>
+<style scoped>
+.text-fade-out {
+  position: relative;
+  display: inline-block;
+  max-width: 100%;
+}
+
+.text-fade-out::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 50px;
+  background-image: linear-gradient(
+    to right,
+    rgba(255, 255, 255, 0),
+    #212121
+  );
+}
+</style>
