@@ -615,7 +615,7 @@ func loadFolders(db *gorm.DB, folder *models.Folder) error {
 	}
 
 	// Recursively load children of each child folder
-	for i, _ := range folder.ChildFolders {
+	for i := range folder.ChildFolders {
 		if err := loadFolders(db, folder.ChildFolders[i]); err != nil {
 			return err
 		}
