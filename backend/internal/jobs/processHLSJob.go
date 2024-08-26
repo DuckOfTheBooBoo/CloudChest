@@ -7,7 +7,7 @@ import (
 	"os"
 	"strings"
 
-	"github.com/DuckOfTheBooBoo/web-gallery-app/backend/models"
+	"github.com/DuckOfTheBooBoo/web-gallery-app/backend/internal/models"
 	"github.com/minio/minio-go/v7"
 	ffmpeg "github.com/u2takey/ffmpeg-go"
 	"gorm.io/gorm"

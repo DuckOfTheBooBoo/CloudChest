@@ -1,10 +1,10 @@
-package controllers
+package handlers
 
 import (
 	"net/http"
 	"strings"
 
-	"github.com/DuckOfTheBooBoo/web-gallery-app/backend/utils"
+	"github.com/DuckOfTheBooBoo/web-gallery-app/backend/pkg/utils"
 	"github.com/gin-gonic/gin"
 )
 

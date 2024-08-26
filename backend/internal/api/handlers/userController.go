@@ -1,4 +1,4 @@
-package controllers
+package handlers
 
 import (
 	"context"
@@ -7,8 +7,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/DuckOfTheBooBoo/web-gallery-app/backend/models"
-	"github.com/DuckOfTheBooBoo/web-gallery-app/backend/utils"
+	"github.com/DuckOfTheBooBoo/web-gallery-app/backend/internal/models"
+	"github.com/DuckOfTheBooBoo/web-gallery-app/backend/pkg/utils"
 	"github.com/gin-gonic/gin"
 	"github.com/go-playground/validator/v10"
 	"github.com/golang-jwt/jwt"

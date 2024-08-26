@@ -1,4 +1,4 @@
-package controllers
+package handlers
 
 import (
 	"bytes"
@@ -14,9 +14,9 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/DuckOfTheBooBoo/web-gallery-app/backend/jobs"
-	"github.com/DuckOfTheBooBoo/web-gallery-app/backend/models"
-	"github.com/DuckOfTheBooBoo/web-gallery-app/backend/utils"
+	"github.com/DuckOfTheBooBoo/web-gallery-app/backend/internal/jobs"
+	"github.com/DuckOfTheBooBoo/web-gallery-app/backend/internal/models"
+	"github.com/DuckOfTheBooBoo/web-gallery-app/backend/pkg/utils"
 	"github.com/gin-gonic/gin"
 	"github.com/go-playground/validator/v10"
 	"github.com/gofrs/uuid/v5"

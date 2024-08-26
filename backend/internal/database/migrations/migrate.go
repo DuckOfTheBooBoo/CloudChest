@@ -3,9 +3,9 @@ package main
 import (
 	"log"
 
-	"github.com/DuckOfTheBooBoo/web-gallery-app/backend/database"
-	"github.com/DuckOfTheBooBoo/web-gallery-app/backend/models"
-	"github.com/DuckOfTheBooBoo/web-gallery-app/backend/utils"
+	"github.com/DuckOfTheBooBoo/web-gallery-app/backend/internal/database"
+	"github.com/DuckOfTheBooBoo/web-gallery-app/backend/internal/models"
+	"github.com/DuckOfTheBooBoo/web-gallery-app/backend/pkg/utils"
 )
 
 func init() {

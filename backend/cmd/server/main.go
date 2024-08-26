@@ -3,10 +3,10 @@ package main
 import (
 	"log"
 
-	"github.com/DuckOfTheBooBoo/web-gallery-app/backend/database"
-	"github.com/DuckOfTheBooBoo/web-gallery-app/backend/middlewares"
-	"github.com/DuckOfTheBooBoo/web-gallery-app/backend/router"
-	"github.com/DuckOfTheBooBoo/web-gallery-app/backend/utils"
+	"github.com/DuckOfTheBooBoo/web-gallery-app/backend/internal/database"
+	"github.com/DuckOfTheBooBoo/web-gallery-app/backend/internal/middlewares"
+	"github.com/DuckOfTheBooBoo/web-gallery-app/backend/internal/api/routes"
+	"github.com/DuckOfTheBooBoo/web-gallery-app/backend/pkg/utils"
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 	cron "github.com/robfig/cron/v3"
@@ -51,11 +51,11 @@ func main() {
 
 	api.Use(middlewares.DBMiddleware(db.GetDB()))
 	api.Use(middlewares.MinIOMiddleware(minioClient.GetMinioClient()))
-	router.TokenRoutes(api)
-	router.UserRoutes(api)
-	router.FileRoutes(api)
-	router.FolderRoutes(api)
-	router.HLSRoutes(api)
+	routes.TokenRoutes(api)
+	routes.UserRoutes(api)
+	routes.FileRoutes(api)
+	routes.FolderRoutes(api)
+	routes.HLSRoutes(api)
 
 	// Schedule revoked tokens ('tokens' table in database) pruning
 	c := cron.New()

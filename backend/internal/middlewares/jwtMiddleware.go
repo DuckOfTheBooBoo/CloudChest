@@ -4,8 +4,8 @@ import (
 	"net/http"
 	"strings"
 
-	_ "github.com/DuckOfTheBooBoo/web-gallery-app/backend/models"
-	"github.com/DuckOfTheBooBoo/web-gallery-app/backend/utils"
+	_ "github.com/DuckOfTheBooBoo/web-gallery-app/backend/internal/models"
+	"github.com/DuckOfTheBooBoo/web-gallery-app/backend/pkg/utils"
 	"github.com/gin-gonic/gin"
 	_ "gorm.io/gorm"
 )

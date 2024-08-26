@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/DuckOfTheBooBoo/web-gallery-app/backend/models"
+	"github.com/DuckOfTheBooBoo/web-gallery-app/backend/internal/models"
 )
 
 func WriteTempFile(file models.File, assetFileBytes []byte) (string, error) {
