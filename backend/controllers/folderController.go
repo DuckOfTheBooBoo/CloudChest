@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"os"
 	"slices"
+	// "sort"
 	"strings"
 	"sync"
 
@@ -22,6 +23,7 @@ import (
 	gonanoid "github.com/matoous/go-nanoid/v2"
 	"github.com/minio/minio-go/v7"
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
 
 const (
@@ -261,7 +263,7 @@ func FolderContentsCreate(c *gin.Context) {
 			log.Println(err.Error())
 			return
 		}
-		
+
 		// Stuf happens, uploadedFile have a body length of 0? It went well until I pass it into minioClient for uploading to the bucket. The current workaround is to convert it into []byte regardless its mime type
 		// Prepare []byte of the uploded file in case its a media (image or video) file. Else let it collected by garbage collector
 		var uploadedFileBytes []byte
@@ -271,7 +273,7 @@ func FolderContentsCreate(c *gin.Context) {
 			return
 		}
 		uploadedFile.Close()
-		
+
 		filePath := "/" + fileCode.String()
 
 		// Use transaction, PutObject to minio could lead to an error. If it does, we can't let any changes happen in the database
@@ -288,8 +290,7 @@ func FolderContentsCreate(c *gin.Context) {
 
 			return nil
 		})
-		
-		
+
 		if err != nil {
 			log.Println(err.Error())
 			c.JSON(http.StatusInternalServerError, gin.H{
@@ -297,7 +298,6 @@ func FolderContentsCreate(c *gin.Context) {
 			})
 			return
 		}
-
 
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{
@@ -340,13 +340,13 @@ func FolderContentsCreate(c *gin.Context) {
 					defer wg.Done()
 
 					select {
-						case <- ctx.Done():
-							log.Println("Thumbnail generation cancelled due to error in writing temp file.")
-							return
-						
-						default:
-							filePath := <- tempThumbFilePathChan
-							jobs.GenerateThumbnail(ctx, filePath, minioClient, db, newFile, user.MinioBucket)
+					case <-ctx.Done():
+						log.Println("Thumbnail generation cancelled due to error in writing temp file.")
+						return
+
+					default:
+						filePath := <-tempThumbFilePathChan
+						jobs.GenerateThumbnail(ctx, filePath, minioClient, db, newFile, user.MinioBucket)
 					}
 
 				}(jobCtx)
@@ -358,12 +358,12 @@ func FolderContentsCreate(c *gin.Context) {
 					go func(ctx context.Context) {
 						defer wg.Done()
 						select {
-						case <- ctx.Done():
+						case <-ctx.Done():
 							log.Println("HLS process cancelled due to error in writing temp file.")
 							return
-						
+
 						default:
-							filePath := <- tempHLSbFilePathChan
+							filePath := <-tempHLSbFilePathChan
 							jobs.ProcessHLS(filePath, ctx, minioClient, db, newFile, user.MinioBucket)
 						}
 					}(jobCtx)
@@ -371,7 +371,7 @@ func FolderContentsCreate(c *gin.Context) {
 
 				// Remove temp file
 				wg.Wait()
-				filePath := <- tempThumbFilePathChan
+				filePath := <-tempThumbFilePathChan
 				os.Remove(filePath)
 				log.Println("Removed temp file: " + filePath)
 			}()
@@ -538,7 +538,7 @@ func FolderPatch(c *gin.Context) {
 		})
 		return
 	}
-	
+
 	if err := validate.Struct(folderUpdateBody); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
 			"error": err.Error(),
@@ -605,5 +605,158 @@ func FolderPatch(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, folder)	
+	c.JSON(http.StatusOK, folder)
+}
+
+func loadFolders(db *gorm.DB, folder *models.Folder) error {
+	// Preload immediate child folders
+	if err := db.Preload(clause.Associations).Find(&folder).Error; err != nil {
+		return err
+	}
+
+	// Recursively load children of each child folder
+	for i, _ := range folder.ChildFolders {
+		if err := loadFolders(db, folder.ChildFolders[i]); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func processFolder(ctx *context.Context, db *gorm.DB, minioClient *minio.Client, minioBucket string, folder *models.Folder) error {
+	for _, child := range(folder.ChildFolders) {
+		if err := processFolder(ctx, db, minioClient, minioBucket, child); err != nil {
+			return err
+		}
+	}
+
+	var toBeDeletedFiles []*models.File
+	var filesThumbnail []*models.Thumbnail
+	for _, file := range(folder.Files) {
+		log.Printf("Deleting file %s (%s)\n", file.FileName, file.FileCode)
+		toBeDeletedFiles = append(toBeDeletedFiles, file)
+		if file.Thumbnail != nil {
+			filesThumbnail = append(filesThumbnail, file.Thumbnail)
+		}
+	}
+
+	// Delete thumbnails from DB
+	if len(filesThumbnail) > 0 {
+		if err := db.Unscoped().Delete(&filesThumbnail).Error; err != nil {
+			return err
+		}
+	
+		thumbObjCh := make(chan minio.ObjectInfo)
+		go func() {
+			defer close(thumbObjCh)
+			for _, thumb := range filesThumbnail {
+				if len(toBeDeletedFiles) > 0 {
+					obj := minio.ObjectInfo{
+						Key: thumb.FilePath,
+					}
+					thumbObjCh <- obj
+				}
+			}
+		}()
+	
+		for err := range minioClient.RemoveObjects(*ctx, minioBucket, thumbObjCh, minio.RemoveObjectsOptions{}) {
+			if err.Err != nil {
+				return err.Err
+			}
+		}
+	}
+
+	// Delete files from DB
+	if err := db.Unscoped().Delete(&toBeDeletedFiles).Error; err != nil {
+		return err
+	}
+
+	objectsCh := make(chan minio.ObjectInfo)
+	go func() {
+		defer close(objectsCh)
+		for _, file := range toBeDeletedFiles {
+			if len(toBeDeletedFiles) > 0 {
+				obj := minio.ObjectInfo{
+					Key: file.FileCode,
+				}
+				objectsCh <- obj
+			}
+		}
+	}()
+
+	for err := range minioClient.RemoveObjects(*ctx, minioBucket, objectsCh, minio.RemoveObjectsOptions{}) {
+		if err.Err != nil {
+			return err.Err
+		}
+	}
+
+	log.Printf("Deleting folder %s (%s)\n", folder.Name, folder.Code)
+	if err := db.Unscoped().Delete(&folder).Error; err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func FolderDelete(c *gin.Context) {
+	ctx := context.Background()
+	minioClient := c.MustGet("minio").(*minio.Client)
+	folderCode := c.Param("code")
+	db := c.MustGet("db").(*gorm.DB)
+	userClaim := c.MustGet("userClaims").(*utils.UserClaims)
+	trash := c.DefaultQuery("trash", "true") == "true"
+
+	var user models.User
+	if err := db.Where("id = ?", userClaim.ID).Find(&user).Error; err != nil {
+		c.Status(http.StatusNotFound)
+		return
+	}
+
+	// Fetch folder
+	var targetFolder models.Folder
+	query := db.Where("code = ? AND user_id = ?", folderCode, user.ID)
+
+	if !trash {
+		query = query.Unscoped()
+	}
+
+	if err := query.Find(&targetFolder).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			c.JSON(http.StatusNotFound, gin.H{
+				"error": "Folder not found",
+			})
+			return
+		}
+
+		c.Status(http.StatusInternalServerError)
+		log.Println(err)
+		return
+	}
+
+	
+	if trash {
+		if err := db.Delete(&targetFolder).Error; err != nil {
+			c.Status(http.StatusInternalServerError)
+			log.Println(err)
+			return
+		}
+
+		c.Status(http.StatusOK)
+		return
+	}
+
+	if err := loadFolders(db, &targetFolder); err != nil {
+		c.Status(http.StatusInternalServerError)
+		log.Println(err)
+		return
+	}
+
+	if err := processFolder(&ctx, db, minioClient, user.MinioBucket, &targetFolder); err != nil {
+		c.Status(http.StatusInternalServerError)
+		log.Println(err)
+		return
+	}
+
+	c.Status(http.StatusOK)
 }
