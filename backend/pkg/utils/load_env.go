@@ -2,9 +2,10 @@ package utils
 
 import (
 	"log"
-	"path/filepath"
-	"github.com/joho/godotenv"
 	"os"
+	"path/filepath"
+
+	"github.com/joho/godotenv"
 )
 
 func LoadEnv() error {
@@ -13,7 +14,7 @@ func LoadEnv() error {
         return err
     }
 
-    envPath := filepath.Join(dir, ".env")
+    envPath := filepath.Join(dir, "../../.env")
 
     err = godotenv.Load(envPath)
     if err != nil {
