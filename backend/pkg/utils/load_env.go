@@ -14,7 +14,7 @@ func LoadEnv() error {
         return err
     }
 
-    envPath := filepath.Join(dir, "../../.env")
+    envPath := filepath.Join(dir, ".env")
 
     err = godotenv.Load(envPath)
     if err != nil {
