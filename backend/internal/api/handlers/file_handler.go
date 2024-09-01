@@ -11,6 +11,8 @@ import (
 	"time"
 
 	"github.com/DuckOfTheBooBoo/web-gallery-app/backend/internal/models"
+	"github.com/DuckOfTheBooBoo/web-gallery-app/backend/internal/services"
+	"github.com/DuckOfTheBooBoo/web-gallery-app/backend/pkg/apperr"
 	"github.com/DuckOfTheBooBoo/web-gallery-app/backend/pkg/utils"
 	"github.com/gin-gonic/gin"
 	"github.com/go-playground/validator/v10"
@@ -18,52 +20,37 @@ import (
 	"gorm.io/gorm"
 )
 
-func FileList(c *gin.Context) {
-	db := c.MustGet("db").(*gorm.DB)
+type FileHandler struct {
+	FileService *services.FileService
+}
+
+func NewFileHandler(fileService *services.FileService) *FileHandler {
+	return &FileHandler{
+		FileService: fileService,
+	}
+}
+
+func (h *FileHandler) FileList(c *gin.Context) {
 	userClaim := c.MustGet("userClaims").(*utils.UserClaims)
 	isTrashCan := c.DefaultQuery("trashCan", "false") == "true"
 	isFavorite := c.DefaultQuery("favorite", "false") == "true"
 
-	var user models.User
-	err := db.First(&user, "id = ?", userClaim.ID).Error
+	files, err := h.FileService.ListFiles(userClaim.ID, isTrashCan, isFavorite)
 
 	if err != nil {
-		c.Status(http.StatusInternalServerError)
-		log.Println(err.Error())
-		return
-	}
-
-	if isTrashCan && isFavorite {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"error": "Cannot fetch trash can and favorite at the same time.",
-		})
-		return
-	}
-
-	if isFavorite {
-		var favoriteFiles []models.File
-		if err := db.Where("user_id = ? AND is_favorite = ?", user.ID, true).Find(&favoriteFiles).Error; err != nil {
+		if errors.Is(err, &apperr.ServerError{}) {
 			c.Status(http.StatusInternalServerError)
-			log.Println(err.Error())
+			return
+		} else if errors.Is(err, &apperr.InvalidParamError{}) {
+			c.JSON(http.StatusBadRequest, gin.H{
+				"error": "Cannot fetch trash can and favorite at the same time.",
+			})
 			return
 		}
-
-		c.JSON(http.StatusOK, gin.H{
-			"files": favoriteFiles,
-		})
-		return
-	}
-
-	// Trash can
-	var trashedFiles []models.File
-	if err := db.Unscoped().Where("user_id = ? AND deleted_at IS NOT NULL", user.ID).Find(&trashedFiles).Error; err != nil {
-		c.Status(http.StatusInternalServerError)
-		log.Println(err.Error())
-		return
 	}
 
 	c.JSON(http.StatusOK, gin.H{
-		"files": trashedFiles,
+		"files": files,
 	})
 }
 

@@ -7,6 +7,8 @@ import (
 
 type UserClaims struct {
 	ID uint `json:"id"`
+	Bucket string
+	ServiceBucket string
 	jwt.StandardClaims
 }
 

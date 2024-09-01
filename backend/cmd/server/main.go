@@ -3,9 +3,11 @@ package main
 import (
 	"log"
 
+	"github.com/DuckOfTheBooBoo/web-gallery-app/backend/internal/api/handlers"
+	"github.com/DuckOfTheBooBoo/web-gallery-app/backend/internal/api/routes"
 	"github.com/DuckOfTheBooBoo/web-gallery-app/backend/internal/database"
 	"github.com/DuckOfTheBooBoo/web-gallery-app/backend/internal/middlewares"
-	"github.com/DuckOfTheBooBoo/web-gallery-app/backend/internal/api/routes"
+	"github.com/DuckOfTheBooBoo/web-gallery-app/backend/internal/services"
 	"github.com/DuckOfTheBooBoo/web-gallery-app/backend/pkg/utils"
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
@@ -50,10 +52,13 @@ func main() {
 	api := r.Group("/api")
 
 	api.Use(middlewares.DBMiddleware(db.GetDB()))
-	api.Use(middlewares.MinIOMiddleware(minioClient.GetMinioClient()))
+
+	fileService := services.NewFileService(db.GetDB())
+	fileHandler := handlers.NewFileHandler(fileService)
+
 	routes.TokenRoutes(api)
 	routes.UserRoutes(api)
-	routes.FileRoutes(api)
+	routes.FileRoutes(api, fileHandler, minioClient.GetMinioClient())
 	routes.FolderRoutes(api)
 	routes.HLSRoutes(api)
 

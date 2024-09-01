@@ -61,7 +61,15 @@ func UserCreate(c *gin.Context) {
 		log.Println(err.Error())
 		return
 	}
-	err = minioClient.MakeBucket(ctx, bucketName.String(), minio.MakeBucketOptions{
+
+	serviceBucketName, err := uuid.NewV4()
+	if err != nil {
+		c.Status(http.StatusInternalServerError)
+		log.Println(err.Error())
+		return
+	}
+
+	err = minioClient.MakeBucket(ctx, serviceBucketName.String(), minio.MakeBucketOptions{
 		Region: "us-east-1",
 	})
 
@@ -80,6 +88,7 @@ func UserCreate(c *gin.Context) {
 		Email: userBody.Email,
 		Password: hashedPassword,
 		MinioBucket: bucketName.String(),
+		MinioServiceBucket: serviceBucketName.String(),
 		Folders: []*models.Folder{
 			&rootFolder,
 		},
@@ -154,6 +163,8 @@ func UserLogin(c *gin.Context) {
 
 	userClaim := utils.UserClaims{
 		ID: user.ID,
+		Bucket: user.MinioBucket,
+		ServiceBucket: user.MinioServiceBucket,
 		StandardClaims: jwt.StandardClaims{
 			IssuedAt:  time.Now().Unix(),
 			ExpiresAt: time.Now().Add(time.Minute * 60).Unix(),
