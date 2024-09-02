@@ -51,7 +51,7 @@ func main() {
 	// Define root endpoint
 	api := r.Group("/api")
 
-	api.Use(middlewares.DBMiddleware(db.GetDB()))
+	api.Use(middlewares.DBMiddleware(db.GetDB(), minioClient.GetMinioClient()))
 
 	fileService := services.NewFileService(db.GetDB())
 	fileHandler := handlers.NewFileHandler(fileService)
