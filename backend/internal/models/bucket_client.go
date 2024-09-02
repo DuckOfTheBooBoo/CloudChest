@@ -30,3 +30,7 @@ func (bc *BucketClient) PutObject(objectName string, reader io.Reader, objectSiz
 func (bc *BucketClient) GetObject(objectName string, opts minio.GetObjectOptions) (*minio.Object, error) {
 	return bc.Client.GetObject(context.Background(), bc.Bucket, objectName, opts)
 }
+
+func (bc *BucketClient) RemoveObject(objectName string, opts minio.RemoveObjectOptions) error {
+	return bc.Client.RemoveObject(context.Background(), bc.Bucket, objectName, opts)
+}
