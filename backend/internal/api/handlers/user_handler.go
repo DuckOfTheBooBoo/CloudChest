@@ -5,7 +5,7 @@ import (
 	"net/http"
 	"strings"
 	"time"
-
+	
 	"github.com/DuckOfTheBooBoo/web-gallery-app/backend/internal/models"
 	"github.com/DuckOfTheBooBoo/web-gallery-app/backend/internal/services"
 	"github.com/DuckOfTheBooBoo/web-gallery-app/backend/pkg/apperr"
@@ -27,13 +27,20 @@ func NewUserHandler(userService *services.UserService) *UserHandler {
 }
 
 func (uf *UserHandler) UserCreate(c *gin.Context) {
+	validate := validator.New()
 	var userBody models.UserBody
-
 	err := c.BindJSON(&userBody)
 
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
 			"error": "No request body (JSON) included.",
+		})
+		return
+	}
+
+	if err := validate.Struct(userBody); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": err.Error(),
 		})
 		return
 	}

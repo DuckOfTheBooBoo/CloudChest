@@ -6,7 +6,6 @@ import (
 	"github.com/DuckOfTheBooBoo/web-gallery-app/backend/internal/models"
 	"github.com/DuckOfTheBooBoo/web-gallery-app/backend/pkg/apperr"
 	"github.com/DuckOfTheBooBoo/web-gallery-app/backend/pkg/utils"
-	"github.com/go-playground/validator/v10"
 	"github.com/gofrs/uuid/v5"
 	"github.com/minio/minio-go/v7"
 	"gorm.io/gorm"
@@ -33,17 +32,7 @@ func NewUserService(db *gorm.DB, mc *minio.Client) *UserService {
 }
 
 func (us *UserService) CreateUser(userBody *models.UserBody) (*models.User, error) {
-	validate := validator.New()
 	ctx := context.Background()
-
-	if err := validate.Struct(userBody); err != nil {
-		return nil, &apperr.InvalidParamError{
-			BaseError: &apperr.BaseError{
-				Message: "Invalid request body",
-				Err: err,
-			},
-		}
-	}
 
 	hashedPassword, err := utils.HashPassword(userBody.Password)
 
