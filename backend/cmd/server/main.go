@@ -59,6 +59,10 @@ func main() {
 	userService := services.NewUserService(db.GetDB(), minioClient.GetMinioClient())
 	userHandler := handlers.NewUserHandler(userService)
 
+	authService := services.NewAuthService(db.GetDB())
+	authHandler := handlers.NewAuthHandler(authService)
+
+	routes.AuthRoutes(api, authHandler)
 	routes.TokenRoutes(api)
 	routes.UserRoutes(api, userHandler)
 	routes.FileRoutes(api, fileHandler, minioClient.GetMinioClient())

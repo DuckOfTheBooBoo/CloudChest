@@ -23,6 +23,10 @@ type ResourceNotReadyError struct {
 	*BaseError
 }
 
+type InvalidCredentialsError struct {
+	*BaseError
+}
+
 func (e *BaseError) Error() string {
 	if e.Err != nil {
         return fmt.Sprintf("%s: %v", e.Message, e.Err)
