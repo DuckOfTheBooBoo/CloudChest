@@ -349,63 +349,39 @@ func FileDownload(c *gin.Context) {
 	c.JSON(http.StatusOK, presignedURL)
 }
 
-func FileThumbnail(c *gin.Context) {
-	ctx := context.Background()
-	minioClient := c.MustGet("minio").(*minio.Client)
-	fileID := c.Param("fileID")
-	db := c.MustGet("db").(*gorm.DB)
+func (h *FileHandler) FileThumbnail(c *gin.Context) {
+	fileCode := c.Param("fileCode")
 	userClaim := c.MustGet("userClaims").(*utils.UserClaims)
 
-	// Get user bucket name
-	var user models.User
-	if err := db.Where("id = ?", userClaim.ID).First(&user).Error; err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			c.JSON(http.StatusNotFound, gin.H{
-				"error": "User not found",
-			})
-			return
-		}
+	thumbnailService := services.NewThumbnailService(h.FileService.DB, h.FileService.BucketClient)
 
-		c.Status(http.StatusInternalServerError)
-		log.Println(err.Error())
-		return
-	}
-
-	// Get file
-	var file models.File
-	if err := db.Where("id = ? AND user_id = ?", fileID, user.ID).Preload("Thumbnail").First(&file).Error; err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			c.JSON(http.StatusNotFound, gin.H{
-				"error": "File not found",
-			})
-			return
-		}
-
-		c.Status(http.StatusInternalServerError)
-		log.Println(err.Error())
-		return
-	}
-
-	if file.Thumbnail == nil {
-		if strings.HasPrefix(file.FileType, "image/") {
-			c.JSON(http.StatusAccepted, gin.H{
-				"message": "File's thumbnail is being processed",
-			})
-		} else {
-			c.JSON(http.StatusBadRequest, gin.H{
-				"error": "File is not an image or a video",
-			})
-		}
-		return
-	}
-
-	thumbnail, err := minioClient.GetObject(ctx, user.MinioBucket, file.Thumbnail.FilePath, minio.GetObjectOptions{})
+	thumbnail, err := thumbnailService.GetThumbnail(fileCode, userClaim.ID)
 	if err != nil {
+		if errors.Is(err, &apperr.InvalidParamError{}) {
+			c.JSON(http.StatusBadRequest, gin.H{
+				"error": err.Error(),
+			})
+			return
+		} else if errors.Is(err, &apperr.NotFoundError{}) {
+			c.JSON(http.StatusNotFound, gin.H{
+				"error": err.Error(),
+			})
+			return
+		} else if errors.Is(err, &apperr.ResourceNotReadyError{}) {
+			c.JSON(http.StatusAccepted, gin.H{
+				"error": err.Error(),
+			})
+			return
+		}
+
 		c.Status(http.StatusInternalServerError)
 		log.Println(err.Error())
 		return
 	}
-	defer thumbnail.Close()
+
+	if thumbnail != nil {
+		defer thumbnail.Close()
+	}
 
 	// Read thumbnail's info
 	info, err := thumbnail.Stat()

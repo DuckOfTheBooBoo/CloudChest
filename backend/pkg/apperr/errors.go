@@ -19,6 +19,10 @@ type NotFoundError struct {
 	*BaseError
 }
 
+type ResourceNotReadyError struct {
+	*BaseError
+}
+
 func (e *BaseError) Error() string {
 	if e.Err != nil {
         return fmt.Sprintf("%s: %v", e.Message, e.Err)
