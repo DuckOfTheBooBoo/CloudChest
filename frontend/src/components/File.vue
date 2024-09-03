@@ -126,7 +126,7 @@ const rules = {
         <div class="tw-h-[100px] tw-flex tw-items-center tw-justify-center tw-text-4xl" v-if="!file.FileType.includes('image/') && !file.FileType.includes('video/')">
           <v-icon>{{ categoryToMDIIcon[mimeTypeToCategoryMap[file.FileType]] }}</v-icon>
         </div>
-        <v-img v-else height="100" :src="`/api/files/${file.ID}/thumbnail`" cover alt="No thumbnail"></v-img>
+        <v-img v-else height="100" :src="`/api/files/${file.FileCode}/thumbnail`" cover alt="No thumbnail"></v-img>
 
         <v-card-item>
           <div class="tw-flex tw-flex-row tw-h-full tw-w-full tw-items-center tw-justify-between">
