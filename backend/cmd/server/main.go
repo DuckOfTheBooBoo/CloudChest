@@ -56,8 +56,11 @@ func main() {
 	fileService := services.NewFileService(db.GetDB())
 	fileHandler := handlers.NewFileHandler(fileService)
 
+	userService := services.NewUserService(db.GetDB(), minioClient.GetMinioClient())
+	userHandler := handlers.NewUserHandler(userService)
+
 	routes.TokenRoutes(api)
-	routes.UserRoutes(api)
+	routes.UserRoutes(api, userHandler)
 	routes.FileRoutes(api, fileHandler, minioClient.GetMinioClient())
 	routes.FolderRoutes(api)
 	routes.HLSRoutes(api)

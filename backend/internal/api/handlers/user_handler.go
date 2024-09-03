@@ -1,34 +1,33 @@
 package handlers
 
 import (
-	"context"
 	"log"
 	"net/http"
 	"strings"
 	"time"
 
 	"github.com/DuckOfTheBooBoo/web-gallery-app/backend/internal/models"
+	"github.com/DuckOfTheBooBoo/web-gallery-app/backend/internal/services"
+	"github.com/DuckOfTheBooBoo/web-gallery-app/backend/pkg/apperr"
 	"github.com/DuckOfTheBooBoo/web-gallery-app/backend/pkg/utils"
 	"github.com/gin-gonic/gin"
 	"github.com/go-playground/validator/v10"
 	"github.com/golang-jwt/jwt"
-	"github.com/minio/minio-go/v7"
 	"gorm.io/gorm"
-	"github.com/gofrs/uuid/v5"
 )
 
-func UserCreate(c *gin.Context) {
-	ctx := context.Background()
-	db := c.MustGet("db").(*gorm.DB)
-	minioClient := c.MustGet("minio").(*minio.Client)
-	validate := validator.New()
+type UserHandler struct {
+	UserService *services.UserService
+}
 
-	var userBody struct {
-		FirstName string `json:"first_name" validate:"required,ascii"`
-		LastName  string `json:"last_name" validate:"required,ascii"`
-		Email     string `validate:"required,email"`
-		Password  string `validate:"required,min=6"`
+func NewUserHandler(userService *services.UserService) *UserHandler {
+	return &UserHandler{
+		UserService: userService,
 	}
+}
+
+func (uf *UserHandler) UserCreate(c *gin.Context) {
+	var userBody models.UserBody
 
 	err := c.BindJSON(&userBody)
 
@@ -39,69 +38,18 @@ func UserCreate(c *gin.Context) {
 		return
 	}
 
-	if err := validate.Struct(userBody); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"error": err.Error(),
-		})
-		return
-	}
-
-	hashedPassword, err := utils.HashPassword(userBody.Password)
-
-	if err != nil {
-		c.Status(http.StatusInternalServerError)
-		log.Println(err)
-		return
-	}
-
-	// CREATE MINIO BUCKET
-	bucketName, err := uuid.NewV4()
-	if err != nil {
-		c.Status(http.StatusInternalServerError)
-		log.Println(err.Error())
-		return
-	}
-
-	serviceBucketName, err := uuid.NewV4()
-	if err != nil {
-		c.Status(http.StatusInternalServerError)
-		log.Println(err.Error())
-		return
-	}
-
-	err = minioClient.MakeBucket(ctx, serviceBucketName.String(), minio.MakeBucketOptions{
-		Region: "us-east-1",
-	})
-
-	if err != nil {
-		c.Status(http.StatusInternalServerError)
-		log.Println(err.Error())
-		return
-	}	
-	
-	rootFolder := models.Folder{
-		Name: "/",
-	}
-	user := models.User{
-		FirstName: userBody.FirstName,
-		LastName: userBody.LastName,
-		Email: userBody.Email,
-		Password: hashedPassword,
-		MinioBucket: bucketName.String(),
-		MinioServiceBucket: serviceBucketName.String(),
-		Folders: []*models.Folder{
-			&rootFolder,
-		},
-	}
-
-	err = db.Create(&user).Error
-
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"error": err.Error(),
-		})
-		log.Println(err)
-		return
+	user, err := uf.UserService.CreateUser(&userBody)
+	switch e := err.(type) {
+		case *apperr.InvalidParamError:
+			c.JSON(http.StatusBadRequest, gin.H{
+				"error": e.Error(),
+			})
+			return
+		case *apperr.ServerError:
+			c.Status(http.StatusInternalServerError)
+			return
+		default:
+			break
 	}
 
 	c.JSON(http.StatusCreated, gin.H{

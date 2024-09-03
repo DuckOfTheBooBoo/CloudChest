@@ -2,6 +2,13 @@ package models
 
 import "gorm.io/gorm"
 
+type UserBody struct {
+	FirstName string `json:"first_name" validate:"required,ascii"`
+	LastName  string `json:"last_name" validate:"required,ascii"`
+	Email     string `validate:"required,email"`
+	Password  string `validate:"required,min=6"`
+}
+
 type User struct {
 	gorm.Model
 	FirstName          string `gorm:"type:varchar(50)"`
