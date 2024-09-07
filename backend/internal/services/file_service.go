@@ -237,3 +237,61 @@ func (fs *FileService) UpdateFile(userID, fileID uint, updateBody models.FileUpd
 
 	return &file, nil
 }
+
+func (fs *FileService) PatchFile(userID, fileID uint, patchBody models.FilePatchBody) (*models.File, error) {
+	// Find file
+	var file models.File
+	query := fs.DB.Where("id = ? AND user_id = ?", fileID, userID)
+
+	if patchBody.Restore {
+		query = query.Unscoped()
+	}
+	
+	if err := query.First(&file).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, &apperr.NotFoundError{
+				BaseError: &apperr.BaseError{
+					Message: "File not found",
+					Err: err,
+				},
+			}
+		}
+
+		return nil, &apperr.ServerError{
+			BaseError: &apperr.BaseError{
+				Message: "Internal server error ocurred",
+				Err: err,
+			},
+		}
+	}
+
+	if file.FileName != patchBody.FileName {
+		file.FileName = patchBody.FileName
+	}
+
+	if file.IsFavorite != patchBody.IsFavorite {
+		file.IsFavorite = patchBody.IsFavorite
+	}
+
+	if patchBody.Restore {
+		if err := fs.DB.Unscoped().Model(&file).Update("deleted_at", nil).Error; err != nil {
+			return nil, &apperr.ServerError{
+				BaseError: &apperr.BaseError{
+					Message: "Internal server error ocurred",
+					Err: err,
+				},
+			}
+		}
+	}
+
+	if err := fs.DB.Save(&file).Error; err != nil {
+		return nil, &apperr.ServerError{
+			BaseError: &apperr.BaseError{
+				Message: "Internal server error ocurred",
+				Err: err,
+			},
+		}
+	}
+
+	return &file, nil
+}
