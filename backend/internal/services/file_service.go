@@ -178,3 +178,62 @@ func (fs *FileService) EmptyTrashCan(userID uint) error {
 	}
 	return nil
 }
+
+// UpdateFile updates a file by given file id and user id.
+//
+// This function also supports restoring a file from trash can by setting Restore to true.
+//
+// If the file is not found, it returns a NotFoundError.
+// If other errors occur, it returns a ServerError.
+func (fs *FileService) UpdateFile(userID, fileID uint, updateBody models.FileUpdateBody) (*models.File, error) {
+	// Find file
+	var file models.File
+	query := fs.DB.Where("id = ? AND user_id = ?", fileID, userID)
+
+	if updateBody.Restore {
+		query = query.Unscoped()
+	}
+	
+	if err := query.First(&file).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, &apperr.NotFoundError{
+				BaseError: &apperr.BaseError{
+					Message: "File not found",
+					Err: err,
+				},
+			}
+		}
+
+		return nil, &apperr.ServerError{
+			BaseError: &apperr.BaseError{
+				Message: "Internal server error ocurred",
+				Err: err,
+			},
+		}
+	}
+
+	file.FileName = updateBody.FileName
+	file.IsFavorite = updateBody.IsFavorite
+
+	if updateBody.Restore {
+		if err := fs.DB.Unscoped().Model(&file).Update("deleted_at", nil).Error; err != nil {
+			return nil, &apperr.ServerError{
+				BaseError: &apperr.BaseError{
+					Message: "Internal server error ocurred",
+					Err: err,
+				},
+			}
+		}
+	}
+
+	if err := fs.DB.Save(&file).Error; err != nil {
+		return nil, &apperr.ServerError{
+			BaseError: &apperr.BaseError{
+				Message: "Internal server error ocurred",
+				Err: err,
+			},
+		}
+	}
+
+	return &file, nil
+}

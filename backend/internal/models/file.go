@@ -2,6 +2,12 @@ package models
 
 import "gorm.io/gorm"
 
+type FileUpdateBody struct {
+	FileName   string `validate:"required" json:"file_name"`
+	IsFavorite bool   `validate:"boolean" json:"is_favorite"`
+	Restore    bool   `validate:"boolean" json:"is_restore"`
+}
+
 type File struct {
 	gorm.Model
 	UserID        uint       `gorm:"not null"`

@@ -104,26 +104,11 @@ func (h *FileHandler) FileDeleteAll(c *gin.Context) {
 	c.Status(http.StatusOK)
 }
 
-func FileUpdate(c *gin.Context) {
-	db := c.MustGet("db").(*gorm.DB)
+func (fh *FileHandler) FileUpdate(c *gin.Context) {
 	userClaim := c.MustGet("userClaims").(*utils.UserClaims)
 	fileID := c.Param("fileID")
 
-	var user models.User
-	err := db.Where("id = ?", userClaim.ID).First(&user).Error
-	if err != nil {
-		c.JSON(http.StatusNotFound, gin.H{
-			"error": "User not found",
-		})
-		return
-	}
-
-	var fileUpdateBody struct {
-		FileName   string `validate:"required" json:"file_name"`
-		IsFavorite bool   `validate:"boolean" json:"is_favorite"`
-		Restore    bool   `validate:"boolean" json:"is_restore"`
-	}
-
+	var fileUpdateBody models.FileUpdateBody
 	validate := validator.New()
 
 	if err := c.BindJSON(&fileUpdateBody); err != nil {
@@ -140,54 +125,27 @@ func FileUpdate(c *gin.Context) {
 		return
 	}
 
-	// {
-	// 	"FileName": "error.log",
-	// 	"IsFavorite": false,
-	// 	"Restore": false
-	// }
+	intFileID, err := strconv.Atoi(fileID)
 
-	// Find file
-	var file models.File
-	if !fileUpdateBody.Restore {
-		if err := db.Where("id = ? AND user_id = ?", fileID, user.ID).First(&file).Error; err != nil {
-			c.JSON(http.StatusNotFound, gin.H{
-				"error": "File not found",
-			})
-			log.Println(err.Error())
-			return
-		}
-	} else {
-		if err := db.Unscoped().Where("id = ? AND user_id = ?", fileID, user.ID).First(&file).Error; err != nil {
-			c.JSON(http.StatusNotFound, gin.H{
-				"error": "File not found",
-			})
-			log.Println(err.Error())
-			return
-		}
-	}
-
-	if fileUpdateBody.FileName != file.FileName {
-		file.FileName = fileUpdateBody.FileName
-	}
-
-	file.IsFavorite = fileUpdateBody.IsFavorite
-
-	if fileUpdateBody.Restore {
-		if err := db.Unscoped().Model(&file).Update("deleted_at", nil).Error; err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{
-				"error": "Failed to restore file",
-			})
-			log.Println(err.Error())
-			return
-		}
-	}
-
-	if err := db.Save(&file).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"error": "Failed to update file",
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": "Invalid file ID",
 		})
-		log.Println(err.Error())
 		return
+	}
+
+	file, err := fh.FileService.UpdateFile(userClaim.ID, uint(intFileID), fileUpdateBody)
+	if err != nil {
+		switch e := err.(type) {
+			case *apperr.NotFoundError:
+				c.JSON(http.StatusNotFound, gin.H{
+					"error": e.Error(),
+				})
+				return
+			case *apperr.ServerError:
+				c.Status(http.StatusInternalServerError)
+				return
+		}
 	}
 
 	c.JSON(http.StatusOK, file)

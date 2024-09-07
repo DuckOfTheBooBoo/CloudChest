@@ -13,7 +13,7 @@ func FileRoutes(route *gin.RouterGroup, fileHandler *handlers.FileHandler, minio
 		file.GET("", middlewares.JWTMiddleware(), middlewares.MinIOMiddleware(fileHandler.FileService, minioClient), fileHandler.FileList) // Only for favorites and trashcan
 		file.GET("/:fileCode/thumbnail", middlewares.JWTMiddleware(), middlewares.MinIOMiddleware(fileHandler.FileService, minioClient), fileHandler.FileThumbnail)
 		file.GET("/:fileCode/download", middlewares.JWTMiddleware(), middlewares.MinIOMiddleware(fileHandler.FileService, minioClient), handlers.FileDownload)
-		file.PUT("/:fileID", middlewares.JWTMiddleware(), middlewares.MinIOMiddleware(fileHandler.FileService, minioClient), handlers.FileUpdate)
+		file.PUT("/:fileID", middlewares.JWTMiddleware(), middlewares.MinIOMiddleware(fileHandler.FileService, minioClient), fileHandler.FileUpdate)
 		file.PATCH("/:fileID", middlewares.JWTMiddleware(), middlewares.MinIOMiddleware(fileHandler.FileService, minioClient), handlers.FilePatch)
 		file.DELETE("", middlewares.JWTMiddleware(), middlewares.MinIOMiddleware(fileHandler.FileService, minioClient), fileHandler.FileDeleteAll)
 		file.DELETE("/:fileID", middlewares.JWTMiddleware(), middlewares.MinIOMiddleware(fileHandler.FileService, minioClient), fileHandler.FileDelete)
