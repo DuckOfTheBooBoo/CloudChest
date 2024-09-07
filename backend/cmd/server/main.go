@@ -56,6 +56,9 @@ func main() {
 	fileService := services.NewFileService(db.GetDB())
 	fileHandler := handlers.NewFileHandler(fileService)
 
+	folderService := services.NewFolderService(db.GetDB())
+	folderHandler := handlers.NewFolderHandler(folderService)
+
 	userService := services.NewUserService(db.GetDB(), minioClient.GetMinioClient())
 	userHandler := handlers.NewUserHandler(userService)
 
@@ -66,7 +69,7 @@ func main() {
 	routes.TokenRoutes(api)
 	routes.UserRoutes(api, userHandler)
 	routes.FileRoutes(api, fileHandler, minioClient.GetMinioClient())
-	routes.FolderRoutes(api)
+	routes.FolderRoutes(api, folderHandler)
 	routes.HLSRoutes(api)
 
 	// Schedule revoked tokens ('tokens' table in database) pruning
