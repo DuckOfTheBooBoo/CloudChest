@@ -184,3 +184,34 @@ func (fs *FolderService) PatchFolder(userID uint, folderCode string, folderUpdat
 
 	return &folder, nil
 }
+
+// FetchFolderFiles fetches all files in the given folder.
+//
+// If the folder is not found, it returns a NotFoundError.
+// If other errors occur, it returns a ServerError.
+func (fs *FolderService) FetchFolderFiles(userID uint, folderCode string) ([]*models.File, error) {
+	if folderCode == "root" {
+		folderCode = ""
+	}
+	
+	var parentFolder models.Folder
+	if err := fs.DB.Where("user_id = ? AND code = ?", userID, folderCode).Preload("Files").First(&parentFolder).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, &apperr.NotFoundError{
+				BaseError: &apperr.BaseError{
+					Message: "Folder not found",
+					Err: err,
+				},
+			}
+		}
+
+		return nil, &apperr.ServerError{
+			BaseError: &apperr.BaseError{
+				Message: "Failed to fetch folder files",
+				Err: err,
+			},
+		}
+	}
+
+	return parentFolder.Files, nil
+}

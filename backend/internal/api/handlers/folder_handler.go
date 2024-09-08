@@ -417,77 +417,22 @@ func FolderContentsCreate(c *gin.Context) {
 	})
 }
 
-func FolderContents(c *gin.Context) {
-	db := c.MustGet("db").(*gorm.DB)
+func (fh *FolderHandler) FolderContents(c *gin.Context) {
 	userClaim := c.MustGet("userClaims").(*utils.UserClaims)
 	folderCode := c.Param("code")
-	isTrashCan := c.DefaultQuery("trashCan", "false") == "true"
-	isFavorite := c.DefaultQuery("favorite", "false") == "true"
 
-	var user models.User
-	err := db.First(&user, "id = ?", userClaim.ID).Error
-
+	files, err := fh.folderService.FetchFolderFiles(userClaim.ID, folderCode)
 	if err != nil {
-		c.Status(http.StatusInternalServerError)
-		log.Println(err.Error())
-		return
-	}
-
-	if isTrashCan && isFavorite {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"error": "Cannot use trash can and favorite at the same time.",
-		})
-		return
-	}
-
-	if isFavorite {
-		var favoriteFiles []models.File
-		if err := db.Where("user_id = ? AND is_favorite = ?", user.ID, true).Find(&favoriteFiles).Error; err != nil {
-			c.Status(http.StatusInternalServerError)
-			log.Println(err.Error())
-			return
+		switch err := err.(type) {
+			case *apperr.NotFoundError:
+				c.JSON(http.StatusNotFound, gin.H{
+					"error": err.Error(),
+				})
+				return
+			case *apperr.ServerError:
+				c.Status(http.StatusInternalServerError)
+				return
 		}
-
-		c.JSON(http.StatusOK, gin.H{
-			"files": favoriteFiles,
-		})
-		return
-	}
-
-	if isTrashCan {
-		var trashedFiles []models.File
-		if err := db.Unscoped().Where("user_id = ? AND deleted_at IS NOT NULL", user.ID).Find(&trashedFiles).Error; err != nil {
-			c.Status(http.StatusInternalServerError)
-			log.Println(err.Error())
-			return
-		}
-
-		c.JSON(http.StatusOK, gin.H{
-			"files": trashedFiles,
-		})
-		return
-	}
-
-	var parentFolder models.Folder
-	if folderCode == "root" {
-		if err := db.Where("user_id = ? AND (code IS NULL OR code = '')", user.ID).First(&parentFolder).Error; err != nil {
-			c.Status(http.StatusInternalServerError)
-			log.Println(err.Error())
-			return
-		}
-	} else {
-		if err := db.Where("user_id = ? AND code = ?", user.ID, folderCode).First(&parentFolder).Error; err != nil {
-			c.Status(http.StatusInternalServerError)
-			log.Println(err.Error())
-			return
-		}
-	}
-
-	var files []models.File
-	if err := db.Where("user_id = ? AND folder_id = ?", user.ID, parentFolder.ID).Find(&files).Error; err != nil {
-		c.Status(http.StatusInternalServerError)
-		log.Println(err.Error())
-		return
 	}
 
 	c.JSON(http.StatusOK, files)
