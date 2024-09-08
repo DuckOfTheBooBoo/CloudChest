@@ -20,3 +20,10 @@ type FolderHierarchy struct {
 	Name string `json:"name"`
 	Code string `json:"code"`
 }
+
+type FolderUpdateBody struct {
+	FolderName       string `json:"folder_name"`
+	IsFavorite       bool   `validate:"boolean" json:"is_favorite"`
+	Restore          bool   `validate:"boolean" json:"is_restore"`
+	ParentFolderCode string `json:"parent_folder_code"`
+}

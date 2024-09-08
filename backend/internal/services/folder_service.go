@@ -111,3 +111,76 @@ func (fs *FolderService) ListFolders(userID uint, folderCode string) (*FolderRes
 		Hierarchies: hierarchies,
 	}, nil
 }
+
+// PatchFolder updates a folder. If folderUpdateBody.Restore is true, it will restore a soft-deleted folder.
+func (fs *FolderService) PatchFolder(userID uint, folderCode string, folderUpdateBody models.FolderUpdateBody) (*models.Folder, error) {
+	var folder models.Folder
+
+	query := fs.DB.Where("code = ? AND user_id = ?", folderCode, userID)
+
+	if folderUpdateBody.Restore {
+		query = query.Unscoped()
+	}
+
+	if err := query.First(&folder).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, &apperr.NotFoundError{
+				BaseError: &apperr.BaseError{
+					Message: "Folder not found",
+					Err: err,
+				},
+			}
+		}
+
+		return nil, &apperr.ServerError{
+			BaseError: &apperr.BaseError{
+				Message: "Failed to patch folder",
+				Err: err,
+			},
+		}
+	}
+
+	if folderUpdateBody.FolderName != "" {
+		folder.Name = folderUpdateBody.FolderName
+	}
+
+	if folder.IsFavorite != folderUpdateBody.IsFavorite {
+		folder.IsFavorite = folderUpdateBody.IsFavorite
+	}
+
+	if folderUpdateBody.ParentFolderCode != "" {
+		var parentFolder models.Folder
+		if err := fs.DB.Where("code = ? AND user_id = ?", folderUpdateBody.ParentFolderCode, userID).First(&parentFolder).Error; err != nil {
+			return nil, &apperr.NotFoundError{
+				BaseError: &apperr.BaseError{
+					Message: "Folder not found",
+					Err: err,
+				},
+			}
+		}
+
+		folder.ParentID = &parentFolder.ID
+	}
+
+	if folderUpdateBody.Restore {
+		if err := fs.DB.Unscoped().Model(&folder).Update("deleted_at", nil).Error; err != nil {
+			return nil, &apperr.ServerError{
+				BaseError: &apperr.BaseError{
+					Message: "Failed to restore folder " + folder.Name,
+					Err: err,
+				},
+			}
+		}
+	}
+
+	if err := fs.DB.Save(&folder).Error; err != nil {
+		return nil, &apperr.ServerError{
+			BaseError: &apperr.BaseError{
+				Message: "Failed to update folder " + folder.Name,
+				Err: err,
+			},
+		}
+	}
+
+	return &folder, nil
+}

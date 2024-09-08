@@ -493,19 +493,13 @@ func FolderContents(c *gin.Context) {
 	c.JSON(http.StatusOK, files)
 }
 
-func FolderPatch(c *gin.Context) {
-	db := c.MustGet("db").(*gorm.DB)
+func (fh *FolderHandler) FolderPatch(c *gin.Context) {
 	userClaim := c.MustGet("userClaims").(*utils.UserClaims)
 	folderCode := c.Param("code")
 
 	validate := validator.New()
 
-	var folderUpdateBody struct {
-		FolderName       string `json:"folder_name"`
-		IsFavorite       bool   `validate:"boolean" json:"is_favorite"`
-		Restore          bool   `validate:"boolean" json:"is_restore"`
-		ParentFolderCode string `json:"parent_folder_code"`
-	}
+	var folderUpdateBody models.FolderUpdateBody
 
 	if err := c.BindJSON(&folderUpdateBody); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
@@ -522,62 +516,18 @@ func FolderPatch(c *gin.Context) {
 		return
 	}
 
-	var folder models.Folder
-	if !folderUpdateBody.Restore {
-		if err := db.Where("code = ? AND user_id = ?", folderCode, userClaim.ID).First(&folder).Error; err != nil {
-			c.JSON(http.StatusNotFound, gin.H{
-				"error": "Folder not found",
-			})
-			log.Println(err.Error())
-			return
+	folder, err := fh.folderService.PatchFolder(userClaim.ID, folderCode, folderUpdateBody)
+	if err != nil {
+		switch err := err.(type) {
+			case *apperr.NotFoundError:
+				c.JSON(http.StatusNotFound, gin.H{
+					"error": err.Error(),
+				})
+				return
+			case *apperr.ServerError:
+				c.Status(http.StatusInternalServerError)
+				return
 		}
-	} else {
-		if err := db.Unscoped().Where("id = ? AND user_id = ?", folderCode, userClaim.ID).First(&folder).Error; err != nil {
-			c.JSON(http.StatusNotFound, gin.H{
-				"error": "Folder not found",
-			})
-			log.Println(err.Error())
-			return
-		}
-	}
-
-	if folderUpdateBody.FolderName != "" {
-		folder.Name = folderUpdateBody.FolderName
-	}
-
-	if folder.IsFavorite != folderUpdateBody.IsFavorite {
-		folder.IsFavorite = folderUpdateBody.IsFavorite
-	}
-
-	if folderUpdateBody.ParentFolderCode != "" {
-		var parentFolder models.Folder
-		if err := db.Where("code = ? AND user_id = ?", folderUpdateBody.ParentFolderCode, userClaim.ID).First(&parentFolder).Error; err != nil {
-			c.JSON(http.StatusNotFound, gin.H{
-				"error": "Folder not found",
-			})
-			log.Println(err.Error())
-			return
-		}
-
-		folder.ParentID = &parentFolder.ID
-	}
-
-	if folderUpdateBody.Restore {
-		if err := db.Unscoped().Model(&folder).Update("deleted_at", nil).Error; err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{
-				"error": "Failed to restore folder " + folder.Name,
-			})
-			log.Println(err.Error())
-			return
-		}
-	}
-
-	if err := db.Save(&folder).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"error": "Failed to update folder " + folder.Name,
-		})
-		log.Println(err.Error())
-		return
 	}
 
 	c.JSON(http.StatusOK, folder)
