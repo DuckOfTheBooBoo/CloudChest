@@ -2,7 +2,6 @@ package services
 
 import (
 	"errors"
-	"fmt"
 	"log"
 	"strings"
 
@@ -39,49 +38,36 @@ func NewFileService(db *gorm.DB) *FileService {
 	}
 }
 
-// ListFiles lists all files of a user, with the given params.
+// ListFavoriteFiles lists all files of a user that are marked as favorite.
 //
-// If isTrashCan is true, it will list all files in the user's trash can.
-// If isFavorite is true, it will list all files favorited by the user.
-//
-// If both isTrashCan and isFavorite are true, it returns an error.
-//
-// Note that the returned files are not sorted in any particular order.
-//
-// If an internal error occurs, it will return a ServerError.
-func (fs *FileService) ListFiles(userID uint, isTrashCan, isFavorite bool) ([]models.File, error) {
-	if isTrashCan && isFavorite {
-		return nil, &apperr.InvalidParamError{
+// If an internal server error occurs, it returns a ServerError.
+// Otherwise, it returns a list of favorite files of the user.
+func (fs *FileService) ListFavoriteFiles(userID uint) ([]models.File, error) {
+	var favoriteFiles []models.File
+	if err := fs.DB.Where("user_id = ? AND is_favorite = ?", userID, true).Find(&favoriteFiles).Error; err != nil {
+		log.Println(err.Error())
+		return nil, &apperr.ServerError{
 			BaseError: &apperr.BaseError{
-				Message: "cannot fetch trash can and favorite at the same time",
-				Err: fmt.Errorf("cannot fetch trash can and favorite at the same time"),
+				Message: "Internal server error ocurred",
+				Err: err,
 			},
 		}
 	}
 
-	if isFavorite {
-		var favoriteFiles []models.File
-		if err := fs.DB.Where("user_id = ? AND is_favorite = ?", userID, true).Find(&favoriteFiles).Error; err != nil {
-			log.Println(err.Error())
-			return nil, &apperr.ServerError{
-				BaseError: &apperr.BaseError{
-					Message: "Internal server error ocurred",
-					Err: err,
-				},
-			}
-		}
+	return favoriteFiles, nil
+}
 
-		return favoriteFiles, nil
-	}
-
-	// Trash can
+// ListTrashCanFiles lists all files of a user that are trashed.
+//
+// If an internal server error occurs, it returns a ServerError.
+// Otherwise, it returns a list of trashed files of the user.
+func (fs *FileService) ListTrashCanFiles(userID uint) ([]models.File, error) {
 	var trashedFiles []models.File
 	if err := fs.DB.Unscoped().Where("user_id = ? AND deleted_at IS NOT NULL", userID).Find(&trashedFiles).Error; err != nil {
-		log.Println(err.Error())
-		return nil, &apperr.InvalidParamError{
+		return nil, &apperr.ServerError{
 			BaseError: &apperr.BaseError{
-				Message: "cannot fetch trash can and favorite at the same time",
-				Err: fmt.Errorf("cannot fetch trash can and favorite at the same time"),
+				Message: "Failed to fetch trashed files",
+				Err: err,
 			},
 		}
 	}

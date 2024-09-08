@@ -10,9 +10,10 @@ import (
 func FileRoutes(route *gin.RouterGroup, fileHandler *handlers.FileHandler, minioClient *minio.Client) {
 	file := route.Group("/files") 
 	{	
-		file.GET("", middlewares.JWTMiddleware(), middlewares.MinIOMiddleware(fileHandler.FileService, minioClient), fileHandler.FileList) // Only for favorites and trashcan
+		file.GET("/favorite", middlewares.JWTMiddleware(), middlewares.MinIOMiddleware(fileHandler.FileService, minioClient), fileHandler.FileFavorites) // Only for favorites and trashcan
+		file.GET("/trashcan", middlewares.JWTMiddleware(), middlewares.MinIOMiddleware(fileHandler.FileService, minioClient), fileHandler.FileTrashCan) // Only for favorites and trashcan
 		file.GET("/:fileCode/thumbnail", middlewares.JWTMiddleware(), middlewares.MinIOMiddleware(fileHandler.FileService, minioClient), fileHandler.FileThumbnail)
-		file.GET("/:fileCode/download", middlewares.JWTMiddleware(), middlewares.MinIOMiddleware(fileHandler.FileService, minioClient), handlers.FileDownload)
+		file.GET("/:fileCode/download", middlewares.JWTMiddleware(), middlewares.MinIOMiddleware(fileHandler.FileService, minioClient), handlers.FileDownload) // TODO: implement reverse proxy for download
 		file.PUT("/:fileID", middlewares.JWTMiddleware(), middlewares.MinIOMiddleware(fileHandler.FileService, minioClient), fileHandler.FileUpdate)
 		file.PATCH("/:fileID", middlewares.JWTMiddleware(), middlewares.MinIOMiddleware(fileHandler.FileService, minioClient), fileHandler.FilePatch)
 		file.DELETE("", middlewares.JWTMiddleware(), middlewares.MinIOMiddleware(fileHandler.FileService, minioClient), fileHandler.FileDeleteAll)

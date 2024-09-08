@@ -30,28 +30,28 @@ func NewFileHandler(fileService *services.FileService) *FileHandler {
 	}
 }
 
-func (h *FileHandler) FileList(c *gin.Context) {
+func (h *FileHandler) FileFavorites(c *gin.Context) {
 	userClaim := c.MustGet("userClaims").(*utils.UserClaims)
-	isTrashCan := c.DefaultQuery("trashCan", "false") == "true"
-	isFavorite := c.DefaultQuery("favorite", "false") == "true"
 
-	files, err := h.FileService.ListFiles(userClaim.ID, isTrashCan, isFavorite)
-
+	files, err := h.FileService.ListFavoriteFiles(userClaim.ID)
 	if err != nil {
-		if errors.Is(err, &apperr.ServerError{}) {
-			c.Status(http.StatusInternalServerError)
-			return
-		} else if errors.Is(err, &apperr.InvalidParamError{}) {
-			c.JSON(http.StatusBadRequest, gin.H{
-				"error": "Cannot fetch trash can and favorite at the same time.",
-			})
-			return
-		}
+		c.Status(http.StatusInternalServerError)
+		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{
-		"files": files,
-	})
+	c.JSON(http.StatusOK, files)
+}
+
+func (h *FileHandler) FileTrashCan(c *gin.Context) {
+	userClaim := c.MustGet("userClaims").(*utils.UserClaims)
+
+	files, err := h.FileService.ListTrashCanFiles(userClaim.ID)
+	if err != nil {
+		c.Status(http.StatusInternalServerError)
+		return
+	}
+
+	c.JSON(http.StatusOK, files)
 }
 
 func (h *FileHandler) FileDelete(c *gin.Context) {
