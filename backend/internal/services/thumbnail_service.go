@@ -81,7 +81,7 @@ func (ts *ThumbnailService) GetThumbnail(fileCode string, userID uint) (*minio.O
 	}
 
 	if file.Thumbnail == nil {
-		if strings.HasPrefix(file.FileType, "image/") {
+		if strings.HasPrefix(file.FileType, "image/") || strings.HasPrefix(file.FileType, "video/") {
 			return nil, &apperr.ResourceNotReadyError{
 				BaseError: &apperr.BaseError{
 					Message: "file's thumbnail is being processed",
