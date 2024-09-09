@@ -122,6 +122,22 @@ func (fs *FileService) DeleteFilePermanent(userID, fileID uint) error {
 	}
 
 	err := fs.DB.Transaction(func(tx *gorm.DB) error {
+		if strings.HasPrefix(file.FileType, "image/") || strings.HasPrefix(file.FileType, "video/") {
+			if file.Thumbnail != nil {
+				thumbnailService := NewThumbnailService(fs.DB, fs.BucketClient)
+				if err := thumbnailService.DeleteThumbnail(file.Thumbnail); err != nil {
+					if !errors.Is(err, &apperr.NotFoundError{}) {
+						return err
+					}
+				}	
+			}
+
+			if strings.HasPrefix(file.FileType, "video/") && file.IsPreviewable {
+				hlsService := NewHLSService(fs.DB, fs.BucketClient)
+				hlsService.DeleteHLSFiles(&file)
+			}
+		}
+	
 		if err := tx.Unscoped().Delete(file).Error; err != nil {
 			if errors.Is(err, gorm.ErrRecordNotFound) {
 				return &apperr.NotFoundError{
@@ -139,19 +155,7 @@ func (fs *FileService) DeleteFilePermanent(userID, fileID uint) error {
 				},
 			}
 		}
-	
-		if strings.HasPrefix(file.FileType, "image/") || strings.HasPrefix(file.FileType, "video/") {
-			thumbnailService := NewThumbnailService(fs.DB, fs.BucketClient)
-			if err := thumbnailService.DeleteThumbnail(file.Thumbnail); err != nil {
-				return err
-			}
-			
-			if strings.HasPrefix(file.FileType, "video/") && file.IsPreviewable {
-				hlsService := NewHLSService(fs.DB, fs.BucketClient)
-				hlsService.DeleteHLSFiles(&file)
-			}
-		}
-	
+
 		if err := fs.BucketClient.RemoveObject(file.FileCode, minio.RemoveObjectOptions{}); err != nil {
 			return &apperr.ServerError{
 				BaseError: &apperr.BaseError{
