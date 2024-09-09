@@ -8,13 +8,9 @@ import (
 	"io"
 	"log"
 	"net/http"
-	"os"
 
 	// "sort"
 	"strings"
-	"sync"
-
-	"github.com/DuckOfTheBooBoo/web-gallery-app/backend/internal/jobs"
 	"github.com/DuckOfTheBooBoo/web-gallery-app/backend/internal/models"
 	"github.com/DuckOfTheBooBoo/web-gallery-app/backend/internal/services"
 	"github.com/DuckOfTheBooBoo/web-gallery-app/backend/pkg/apperr"
@@ -28,17 +24,14 @@ import (
 	"gorm.io/gorm/clause"
 )
 
-const (
-	MAX_PREVIEWABLE_VIDEO_SIZE = 150 * 1000 * 1000
-)
 
 type FolderHandler struct {
-	folderService *services.FolderService
+	FolderService *services.FolderService
 }
 
 func NewFolderHandler(fs *services.FolderService) *FolderHandler {
 	return &FolderHandler{
-		folderService: fs,
+		FolderService: fs,
 	}
 }
 
@@ -48,7 +41,7 @@ func (fh *FolderHandler) FolderList(c *gin.Context) {
 
 
 
-	folderResp, err := fh.folderService.ListFolders(userClaim.ID, folderCode)
+	folderResp, err := fh.FolderService.ListFolders(userClaim.ID, folderCode)
 	if err != nil {
 		switch e := err.(type) {
 			case *apperr.NotFoundError:
@@ -150,6 +143,39 @@ func FolderCreate(c *gin.Context) {
 	c.JSON(http.StatusCreated, gin.H{
 		"folder": newFolder,
 	})
+}
+
+func (fh *FolderHandler) FolderContentsCreate(c *gin.Context) {
+	folderCode := c.Param("code")
+	userClaim := c.MustGet("userClaims").(*utils.UserClaims)
+
+	file, err := c.FormFile("file")
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": "Failed to read file",
+		})
+		return
+	}
+
+	newFile, fileBytes, err := fh.FolderService.UploadFile(userClaim.ID, folderCode, file)
+	if err != nil {
+		switch e := err.(type) {
+			case *apperr.NotFoundError:
+				c.JSON(http.StatusNotFound, gin.H{
+					"error": e.Error(),
+				})
+				return
+			case *apperr.ServerError:
+				c.Status(http.StatusInternalServerError)
+				return
+		}
+	}
+
+	c.JSON(http.StatusCreated, newFile)
+
+	if strings.HasPrefix(newFile.FileType, "image/") || strings.HasPrefix(newFile.FileType, "video/") {
+		fh.FolderService.PostUploadProcess(newFile, fileBytes)
+	}
 }
 
 func FolderContentsCreate(c *gin.Context) {
@@ -287,69 +313,7 @@ func FolderContentsCreate(c *gin.Context) {
 		})
 
 		if strings.HasPrefix(newFile.FileType, "image/") || strings.HasPrefix(newFile.FileType, "video/") {
-			go func() {
-				jobCtx, cancel := context.WithCancel(ctx)
-				defer cancel()
-				var wg sync.WaitGroup
-				tempThumbFilePathChan := make(chan string, 1)
-				tempHLSbFilePathChan := make(chan string)
-
-				// Write file to temp dir
-				wg.Add(1)
-				go func() {
-					defer wg.Done()
-
-					result, err := jobs.WriteTempFile(newFile, uploadedFileBytes)
-					if err != nil {
-						cancel()
-						log.Println(err)
-						return
-					}
-					tempThumbFilePathChan <- result
-					tempHLSbFilePathChan <- result
-				}()
-
-				// Process thumbnail
-				wg.Add(1)
-				go func(ctx context.Context) {
-					defer wg.Done()
-
-					select {
-					case <-ctx.Done():
-						log.Println("Thumbnail generation cancelled due to error in writing temp file.")
-						return
-
-					default:
-						filePath := <-tempThumbFilePathChan
-						jobs.GenerateThumbnail(ctx, filePath, minioClient, db, newFile, user.MinioBucket)
-					}
-
-				}(jobCtx)
-
-				// Process HLS file (video only)
-				if strings.HasPrefix(newFile.FileType, "video/") && newFile.FileSize <= MAX_PREVIEWABLE_VIDEO_SIZE {
-					log.Printf("Processing %s for HLS", newFile.FileName)
-					wg.Add(1)
-					go func(ctx context.Context) {
-						defer wg.Done()
-						select {
-						case <-ctx.Done():
-							log.Println("HLS process cancelled due to error in writing temp file.")
-							return
-
-						default:
-							filePath := <-tempHLSbFilePathChan
-							jobs.ProcessHLS(filePath, ctx, minioClient, db, newFile, user.MinioBucket)
-						}
-					}(jobCtx)
-				}
-
-				// Remove temp file
-				wg.Wait()
-				filePath := <-tempThumbFilePathChan
-				os.Remove(filePath)
-				log.Println("Removed temp file: " + filePath)
-			}()
+			
 		}
 
 		return
@@ -421,7 +385,7 @@ func (fh *FolderHandler) FolderContents(c *gin.Context) {
 	userClaim := c.MustGet("userClaims").(*utils.UserClaims)
 	folderCode := c.Param("code")
 
-	files, err := fh.folderService.FetchFolderFiles(userClaim.ID, folderCode)
+	files, err := fh.FolderService.FetchFolderFiles(userClaim.ID, folderCode)
 	if err != nil {
 		switch err := err.(type) {
 			case *apperr.NotFoundError:
@@ -461,7 +425,7 @@ func (fh *FolderHandler) FolderPatch(c *gin.Context) {
 		return
 	}
 
-	folder, err := fh.folderService.PatchFolder(userClaim.ID, folderCode, folderUpdateBody)
+	folder, err := fh.FolderService.PatchFolder(userClaim.ID, folderCode, folderUpdateBody)
 	if err != nil {
 		switch err := err.(type) {
 			case *apperr.NotFoundError:

@@ -1,11 +1,22 @@
 package services
 
 import (
+	"bytes"
+	"context"
 	"errors"
+	"fmt"
+	"io"
+	"log"
+	"mime/multipart"
+	"os"
 	"slices"
+	"strings"
+	"sync"
 
 	"github.com/DuckOfTheBooBoo/web-gallery-app/backend/internal/models"
 	"github.com/DuckOfTheBooBoo/web-gallery-app/backend/pkg/apperr"
+	"github.com/gofrs/uuid/v5"
+	"github.com/minio/minio-go/v7"
 	"gorm.io/gorm"
 )
 
@@ -34,6 +45,10 @@ type FolderResponse struct {
 	Folders []*models.Folder `json:"folders"`
 	Hierarchies []models.FolderHierarchy `json:"hierarchies"`
 }
+
+const (
+	MAX_PREVIEWABLE_VIDEO_SIZE = 150 * 1000 * 1000
+)
 
 // ListFolders lists all folders of a user, with the given params.
 //
@@ -214,4 +229,191 @@ func (fs *FolderService) FetchFolderFiles(userID uint, folderCode string) ([]*mo
 	}
 
 	return parentFolder.Files, nil
+}
+
+func (fs *FolderService) UploadFile(userID uint, folderCode string, file *multipart.FileHeader) (*models.File, []byte, error) {
+	query := fs.DB.Where("user_id = ? AND code = ?", userID, folderCode)
+
+	if folderCode == "root" {
+		query = fs.DB.Where("user_id = ? AND (code IS NULL OR code = '')", userID)
+	}
+
+	var parentFolder models.Folder
+	if err := query.First(&parentFolder).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, nil, &apperr.NotFoundError{
+				BaseError: &apperr.BaseError{
+					Message: "Folder not found",
+					Err: err,
+				},
+			}
+		}
+
+		return nil, nil, &apperr.ServerError{
+			BaseError: &apperr.BaseError{
+				Message: "Failed to upload file",
+				Err: err,
+			},
+		}
+	}
+
+
+	fileCode, err := uuid.NewV4()
+	if err != nil {
+		return nil, nil, &apperr.ServerError{
+			BaseError: &apperr.BaseError{
+				Message: "Failed to generate file code",
+				Err: err,
+			},
+		}
+	}
+
+	// UPLOAD FILE RECORD TO RDBMS
+	// Create new File record in rbdms
+	newFile := models.File{
+		UserID:     userID,
+		FolderID:   parentFolder.ID,
+		FileName:   file.Filename,
+		FileCode:   fileCode.String(),
+		FileSize:   uint(file.Size),
+		FileType:   file.Header.Get("Content-Type"),
+		IsFavorite: false,
+	}
+
+	if strings.HasPrefix(newFile.FileType, "image/") {
+		newFile.IsPreviewable = true
+	}
+
+	// UPLOAD FILE TO MINIO
+	// Read the file
+	uploadedFile, err := file.Open()
+	if err != nil {
+		return nil, nil, &apperr.ServerError{
+			BaseError: &apperr.BaseError{
+				Message: "Failed to open file",
+				Err: err,
+			},
+		}
+	}
+
+	// Shit happens, uploadedFile have a body length of 0? It went well until I pass it into minioClient for uploading to the bucket. The current workaround is to convert it into []byte regardless its mime type
+	// Prepare []byte of the uploded file in case its a media (image or video) file. Else let it collected by garbage collector
+	var uploadedFileBytes []byte
+	uploadedFileBytes, err = io.ReadAll(uploadedFile)
+	if err != nil {
+		return nil, nil, &apperr.ServerError{
+			BaseError: &apperr.BaseError{
+				Message: "Failed to read file",
+				Err: err,
+			},
+		}
+	}
+	uploadedFile.Close()
+
+	filePath := "/" + fileCode.String()
+
+	// Use transaction, PutObject to minio could lead to an error. If it does, we can't let any changes happen in the database
+	err = fs.DB.Transaction(func(tx *gorm.DB) error {
+		// Upload the file to minio first
+		_, err = fs.BucketClient.PutObject(filePath, bytes.NewReader(uploadedFileBytes), file.Size, minio.PutObjectOptions{ContentType: file.Header.Get("Content-Type")})
+		if err != nil {
+			return fmt.Errorf("error while uploading file to MinIO: %v", err)
+		}
+
+		if err := tx.Create(&newFile).Error; err != nil {
+			if err := fs.BucketClient.RemoveObject(filePath, minio.RemoveObjectOptions{}); err != nil {
+				return fmt.Errorf("error while undoing MinIO file uploading: %v", err)
+			}
+			return fmt.Errorf("error while creating file in database: %v", err)
+		}
+
+		return nil
+	})
+
+	if err != nil {
+		return nil, nil, &apperr.ServerError{
+			BaseError: &apperr.BaseError{
+				Message: "Failed to upload file",
+				Err: err,
+			},
+		}
+	}
+
+	return &newFile, uploadedFileBytes, nil
+}
+
+func (fs *FolderService) PostUploadProcess(file *models.File, uploadedFileBytes []byte) {
+	ctx := context.Background()
+	go func() {
+		jobCtx, cancel := context.WithCancel(ctx)
+		defer cancel()
+		var wg sync.WaitGroup
+		tempThumbFilePathChan := make(chan string, 1)
+		tempHLSbFilePathChan := make(chan string)
+
+		// Write file to temp dir
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+
+			tempPath := fmt.Sprintf("/tmp/%s-file", file.FileCode)
+			tempFile, err := os.Create(tempPath)
+			if err != nil {
+				log.Printf("Error while creating temp file: %v", err)
+				cancel()
+			}
+
+			_, err = tempFile.Write(uploadedFileBytes)
+			if err != nil {
+				log.Printf("Error while writing temp file: %v", err)
+				cancel()
+			}
+		
+			tempThumbFilePathChan <- tempPath
+			tempHLSbFilePathChan <- tempPath
+		}()
+
+		// Process thumbnail
+		wg.Add(1)
+		go func(ctx context.Context) {
+			defer wg.Done()
+
+			select {
+			case <-ctx.Done():
+				log.Println("Thumbnail generation cancelled due to error in writing temp file.")
+				return
+
+			default:
+				filePath := <-tempThumbFilePathChan
+				thumbnailService := NewThumbnailService(fs.DB, fs.BucketClient)
+				thumbnailService.GenerateThumbnail(filePath, file)
+			}
+
+		}(jobCtx)
+
+		// Process HLS file (video only)
+		if strings.HasPrefix(file.FileType, "video/") && file.FileSize <= MAX_PREVIEWABLE_VIDEO_SIZE {
+			log.Printf("Processing %s for HLS", file.FileName)
+			wg.Add(1)
+			go func(ctx context.Context) {
+				defer wg.Done()
+				select {
+				case <-ctx.Done():
+					log.Println("HLS process cancelled due to error in writing temp file.")
+					return
+
+				default:
+					filePath := <-tempHLSbFilePathChan
+					hlsService := NewHLSService(fs.DB, fs.BucketClient)
+					hlsService.ProcessHLS(filePath, file)
+				}
+			}(jobCtx)
+		}
+
+		// Remove temp file
+		wg.Wait()
+		filePath := <-tempThumbFilePathChan
+		os.Remove(filePath)
+		log.Println("Removed temp file: " + filePath)
+	}()
 }
