@@ -65,12 +65,15 @@ func main() {
 	authService := services.NewAuthService(db.GetDB())
 	authHandler := handlers.NewAuthHandler(authService)
 
+	hlsService := services.NewHLSService(db.GetDB(), nil)
+	hlsHandler := handlers.NewHLSHandler(hlsService)
+
 	routes.AuthRoutes(api, authHandler)
 	routes.TokenRoutes(api)
 	routes.UserRoutes(api, userHandler)
 	routes.FileRoutes(api, fileHandler, minioClient.GetMinioClient())
 	routes.FolderRoutes(api, folderHandler, minioClient.GetMinioClient())
-	routes.HLSRoutes(api)
+	routes.HLSRoutes(api, hlsHandler, minioClient.GetMinioClient())
 
 	// Schedule revoked tokens ('tokens' table in database) pruning
 	c := cron.New()

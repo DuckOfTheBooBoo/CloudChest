@@ -34,6 +34,84 @@ func NewHLSService(db *gorm.DB, bc *models.BucketClient) *HLSService {
 	}
 }
 
+// GetMasterPlaylist fetches the master playlist of a HLS file given its file code.
+//
+// It returns the master playlist object, its size, and an error if any. If the file
+// does not exist, it returns a NotFoundError. If there was an internal server error,
+// it returns a ServerError.
+func (hs *HLSService) GetMasterPlaylist(fileCode string) (*minio.Object, *int64, error) {
+	masterPlaylistPath := fmt.Sprintf("/hls/%s/%s.m3u8", fileCode, fileCode)
+	masterPlaylist, err := hs.BucketClient.GetServiceObject(masterPlaylistPath, minio.GetObjectOptions{})
+	if err != nil {
+		return nil, nil, &apperr.ServerError{
+			BaseError: &apperr.BaseError{
+				Message: "Failed to fetch master playlist",
+				Err: err,
+			},
+		}
+	}
+
+	if masterPlaylist == nil {
+		return nil, nil, &apperr.NotFoundError{
+			BaseError: &apperr.BaseError{
+				Message: "Master playlist not found",
+				Err: err,
+			},
+		}
+	}
+
+	msStat, err := masterPlaylist.Stat()
+	if err != nil {
+		return nil, nil, &apperr.ServerError{
+			BaseError: &apperr.BaseError{
+				Message: "Failed to read master playlist",
+				Err: err,
+			},
+		}
+	}
+
+	return masterPlaylist, &msStat.Size, nil
+}
+
+// GetSegment fetches a segment of a HLS file given its file code and segment number.
+//
+// It returns the segment object, its size, and an error if any. If the file
+// does not exist, it returns a NotFoundError. If there was an internal server error,
+// it returns a ServerError.
+func (hs *HLSService) GetSegment(fileCode, segNum string) (*minio.Object, *int64, error) {
+	segmentPath := fmt.Sprintf("/hls/%s/segment-%s.ts", fileCode, segNum)
+	// log.Println(segmentPath)
+	segment, err := hs.BucketClient.GetServiceObject(segmentPath, minio.GetObjectOptions{})
+	if err != nil {
+		return nil, nil, &apperr.ServerError{
+			BaseError: &apperr.BaseError{
+				Message: "Failed to fetch segment",
+				Err: err,
+			},
+		}
+	}
+
+	if segment == nil {
+		return nil, nil, &apperr.NotFoundError{
+			BaseError: &apperr.BaseError{
+				Message: "Segment not found",
+				Err: err,
+			},
+		}
+	}
+
+	segmentStat, err := segment.Stat()
+	if err != nil {
+		return nil, nil, &apperr.ServerError{
+			BaseError: &apperr.BaseError{
+				Message: "Failed to read segment",
+				Err: err,
+			},
+		}
+	}
+
+	return segment, &segmentStat.Size, nil
+}
 
 func (hs *HLSService) ProcessHLS(filePath string, file *models.File) {
 	tmpDir := "/tmp/"+file.FileCode

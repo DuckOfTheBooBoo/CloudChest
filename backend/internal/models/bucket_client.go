@@ -31,6 +31,15 @@ func (bc *BucketClient) GetObject(objectName string, opts minio.GetObjectOptions
 	return bc.Client.GetObject(context.Background(), bc.Bucket, objectName, opts)
 }
 
+func (bc *BucketClient) GetServiceObject(objectName string, opts minio.GetObjectOptions) (*minio.Object, error) {
+	return bc.Client.GetObject(context.Background(), bc.ServiceBucket, objectName, opts)
+}
+
+
+func (bc *BucketClient) PutServiceObject(objectName string, reader io.Reader, objectSize int64, opts minio.PutObjectOptions) (minio.UploadInfo, error) {
+	return bc.Client.PutObject(context.Background(), bc.ServiceBucket, objectName, reader, objectSize, opts)
+}
+
 func (bc *BucketClient) RemoveObject(objectName string, opts minio.RemoveObjectOptions) error {
 	return bc.Client.RemoveObject(context.Background(), bc.Bucket, objectName, opts)
 }
