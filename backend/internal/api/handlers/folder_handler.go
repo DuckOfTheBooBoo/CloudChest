@@ -18,7 +18,6 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/go-playground/validator/v10"
 	"github.com/gofrs/uuid/v5"
-	gonanoid "github.com/matoous/go-nanoid/v2"
 	"github.com/minio/minio-go/v7"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
@@ -58,8 +57,7 @@ func (fh *FolderHandler) FolderList(c *gin.Context) {
 	c.JSON(http.StatusOK, folderResp)
 }
 
-func FolderCreate(c *gin.Context) {
-	db := c.MustGet("db").(*gorm.DB)
+func (fh *FolderHandler) FolderCreate(c *gin.Context) {
 	userClaim := c.MustGet("userClaims").(*utils.UserClaims)
 	parentFolderCode := c.Param("code")
 	validate := validator.New()
@@ -82,61 +80,17 @@ func FolderCreate(c *gin.Context) {
 		return
 	}
 
-	newFolderCode, err := gonanoid.New()
+	newFolder, err := fh.FolderService.CreateFolder(folderBody.FolderName, parentFolderCode, userClaim.ID)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"error": "Failed to generate folder code.",
-		})
-		return
-	}
-
-	// Fetch parent folder
-	var parentFolder models.Folder
-	// Query by parent folder code
-	if parentFolderCode != "root" {
-		if err := db.Where("user_id = ? AND code = ?", userClaim.ID, parentFolderCode).First(&parentFolder).Error; err != nil {
-			if errors.Is(err, gorm.ErrRecordNotFound) {
-				c.Status(http.StatusNotFound)
-				return
-			}
-
-			c.Status(http.StatusInternalServerError)
-			log.Println(err.Error())
+		if errors.Is(err, &apperr.NotFoundError{}) {
+			c.JSON(http.StatusNotFound, gin.H{
+				"error": err.Error(),
+			})
 			return
 		}
-	} else {
-		// Query by user parent folder
-		if err := db.Where("user_id = ? AND (code IS NULL OR code = '')", userClaim.ID).First(&parentFolder).Error; err != nil {
-			if errors.Is(err, gorm.ErrRecordNotFound) {
-				c.Status(http.StatusNotFound)
-				return
-			}
 
-			c.Status(http.StatusInternalServerError)
-			log.Println(err.Error())
-			return
-		}
-	}
-	newFolder := models.Folder{
-		UserID:   userClaim.ID,
-		ParentID: &parentFolder.ID,
-		Name:     folderBody.FolderName,
-		Code:     newFolderCode,
-	}
-
-	if err := db.Create(&newFolder).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"error": "Failed to create folder.",
-		})
-		return
-	}
-
-	parentFolder.HasChild = true
-
-	if err := db.Save(&parentFolder).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"error": "Failed to update parent folder.",
-		})
+		c.Status(http.StatusInternalServerError)
+		log.Println(err.Error())
 		return
 	}
 

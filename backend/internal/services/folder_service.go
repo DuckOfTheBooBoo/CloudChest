@@ -16,6 +16,7 @@ import (
 	"github.com/DuckOfTheBooBoo/web-gallery-app/backend/internal/models"
 	"github.com/DuckOfTheBooBoo/web-gallery-app/backend/pkg/apperr"
 	"github.com/gofrs/uuid/v5"
+	gonanoid "github.com/matoous/go-nanoid/v2"
 	"github.com/minio/minio-go/v7"
 	"gorm.io/gorm"
 )
@@ -416,4 +417,71 @@ func (fs *FolderService) PostUploadProcess(file *models.File, uploadedFileBytes 
 		os.Remove(filePath)
 		log.Println("Removed temp file: " + filePath)
 	}()
+}
+
+func (fs *FolderService) CreateFolder(folderName, parentFolderCode string, userID uint) (*models.Folder, error) {
+	newFolderCode, err := gonanoid.New()
+	if err != nil {
+		return nil, &apperr.ServerError{
+			BaseError: &apperr.BaseError{
+				Message: "Failed to generate folder code",
+				Err: err,
+			},
+		}
+	}
+
+	query := fs.DB.Where("user_id = ? AND (code IS NULL OR code = '')", userID)
+
+	if parentFolderCode != "root" {
+		query = fs.DB.Where("user_id = ? AND code = ?", userID, parentFolderCode)
+	}
+
+	// Fetch parent folder
+	var parentFolder models.Folder
+	// Query by parent folder code
+	if query.First(&parentFolder).Error != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, &apperr.NotFoundError{
+				BaseError: &apperr.BaseError{
+					Message: "Parent folder not found",
+					Err: err,
+				},
+			}
+		}
+
+		return nil, &apperr.ServerError{
+			BaseError: &apperr.BaseError{
+				Message: "Failed to fetch parent folder",
+				Err: err,
+			},
+		}
+	}
+
+	newFolder := models.Folder{
+		UserID:   userID,
+		ParentID: &parentFolder.ID,
+		Name:     folderName,
+		Code:     newFolderCode,
+	}
+
+	if err := fs.DB.Create(&newFolder).Error; err != nil {
+		return nil, &apperr.ServerError{
+			BaseError: &apperr.BaseError{
+				Message: "Failed to create folder",
+				Err: err,
+			},
+		}
+	}
+
+	parentFolder.HasChild = true
+	if err := fs.DB.Save(&parentFolder).Error; err != nil {
+		return nil, &apperr.ServerError{
+			BaseError: &apperr.BaseError{
+				Message: "Failed to update parent folder",
+				Err: err,
+			},
+		}
+	}
+
+	return &newFolder, nil
 }
