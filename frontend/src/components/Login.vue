@@ -51,7 +51,7 @@ const submit = handleSubmit(async (values) => {
   try {
     loading.value = true;
     const response = await axios.post<TokenResponse>(
-      "/api/users/login",
+      "/api/auth/login",
       body,
       {
         params: {

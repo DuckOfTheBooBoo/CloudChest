@@ -98,11 +98,8 @@ async function renameFile(): Promise<void> {
 }
 
 async function getFileURL(): Promise<void> {
-  const resp = await downloadFile(file.ID)
-  if (resp) {
-    const downloadFileUrl: string = `${resp.Scheme}://${resp.Host}${resp.Path}?${resp.RawQuery}`;
-    window.open(downloadFileUrl, '_blank');
-  }
+  const url: string = `/api/files/${file?.FileCode}/download`;
+  window.open(url, '_blank');
 }
 
 function moveFile(): void {
@@ -138,6 +135,7 @@ const rules = {
             <v-list>
 
               <!-- RENAME FILE -->
+              <!-- TODO: hide if file is deleted -->
               <v-list-item @click="() => {renameFilePlaceholder = file.FileName.slice(0, -4)}">
                 <v-icon>mdi-pencil</v-icon> Rename
 
@@ -171,11 +169,13 @@ const rules = {
               </v-list-item>
 
               <!-- DOWNLOAD -->
+              <!-- TODO: hide if file is deleted -->
               <v-list-item @click="getFileURL">
                 <v-icon>mdi-download</v-icon> Download
               </v-list-item>
 
               <!-- MOVE FILE -->
+              <!-- TODO: hide if file is deleted -->
               <v-list-item @click="moveFile">
                 <v-icon>mdi-folder-arrow-right</v-icon> <span class="tw-ml-1">Move to</span>
               </v-list-item>

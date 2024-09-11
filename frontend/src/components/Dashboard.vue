@@ -39,9 +39,9 @@ const axiosManager = useAxiosManagerStore();
 
 async function logout(): Promise<void> {
   try {
-    const response = await axios.post("/api/users/logout");
+    const response = await axios.post("/api/auth/logout");
 
-    if (response.status == 201) {
+    if (response.status == 200) {
       localStorage.removeItem("token");
       axios.defaults.headers.common["Authorization"] = "";
 
@@ -93,7 +93,7 @@ function handleFileChange(file: CloudChestFile): void {
   previewable.value = file.FileType.includes('image/') || file.FileType.includes('video/') && file.IsPreviewable;
 
   if (selectedFile.value.FileType.includes('image/')) {
-    getFileURL().then(url => fileURL.value = url)
+    fileURL.value = `/api/files/${selectedFile.value.FileCode}/download`;
   }
 }
 

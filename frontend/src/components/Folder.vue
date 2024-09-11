@@ -110,21 +110,21 @@ function moveFolder(): void {
                 <v-icon>mdi-information-outline</v-icon> Details
               </v-list-item>
 
-              <!-- TOGGLE FAVORITE FILES -->
+              <!-- TODO: TOGGLE FAVORITE FILES -->
               <v-list-item @click="() => {}" v-if="!folder.DeletedAt">
               </v-list-item>
 
-              <!-- DELETE FILE -->
+              <!-- TODO: DELETE FOLDER -->
               <v-list-item v-if="!folder.DeletedAt" @click="() => {}">
                 <v-icon>mdi-trash-can</v-icon> Delete
               </v-list-item>
 
-              <!-- RESTORE DELETED FILE -->
+              <!-- TODO: RESTORE DELETED FOLDER -->
               <v-list-item v-else @click="() => {}">
                 <v-icon>mdi-delete-restore</v-icon> Restore
               </v-list-item>
 
-              <!-- PERMANENTLY DELETE FILE -->
+              <!-- TODO: PERMANENTLY DELETE FOLDER -->
               <v-list-item v-if="folder.DeletedAt" @click="() => { }">
                 <v-icon>mdi-delete-forever</v-icon> Prune
                 <v-dialog activator="parent" max-width="340">
