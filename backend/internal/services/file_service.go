@@ -3,7 +3,9 @@ package services
 import (
 	"errors"
 	"log"
+	"net/url"
 	"strings"
+	"time"
 
 	"github.com/DuckOfTheBooBoo/web-gallery-app/backend/internal/models"
 	"github.com/DuckOfTheBooBoo/web-gallery-app/backend/pkg/apperr"
@@ -313,4 +315,47 @@ func (fs *FileService) PatchFile(userID, fileID uint, patchBody models.FilePatch
 	}
 
 	return &file, nil
+}
+
+func (fs *FileService) GetPresignedURL(userID uint, fileCode string) (*url.URL, error) {
+	var file models.File
+	if err := fs.DB.Where("file_code = ? AND user_id = ?", fileCode, userID).First(&file).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, &apperr.NotFoundError{
+				BaseError: &apperr.BaseError{
+					Message: "File not found",
+					Err: err,
+				},
+			}
+		}
+
+		return nil, &apperr.ServerError{
+			BaseError: &apperr.BaseError{
+				Message: "Failed to fetch file's information",
+				Err: err,
+			},
+		}
+	}
+
+	reqParams := make(url.Values)
+	reqParams.Set("response-content-disposition", "attachment; filename=\""+file.FileName+"\"")
+
+	charsetParam := ""
+	if strings.HasPrefix(file.FileType, "text/") {
+		charsetParam = "; charset=utf-8"
+	}
+
+	reqParams.Set("response-content-type", file.FileType+charsetParam)
+
+	presignedURL, err := fs.BucketClient.PresignedGetObject(file.FileCode, time.Second*24*60*60, reqParams)
+	if err != nil {
+		return nil, &apperr.ServerError{
+			BaseError: &apperr.BaseError{
+				Message: "Failed to get presigned URL",
+				Err: err,
+			},
+		}
+	}
+
+	return presignedURL, nil
 }

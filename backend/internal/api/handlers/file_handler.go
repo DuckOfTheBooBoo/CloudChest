@@ -1,14 +1,11 @@
 package handlers
 
 import (
-	"context"
 	"errors"
 	"log"
 	"net/http"
-	"net/url"
+	"net/http/httputil"
 	"strconv"
-	"strings"
-	"time"
 
 	"github.com/DuckOfTheBooBoo/web-gallery-app/backend/internal/models"
 	"github.com/DuckOfTheBooBoo/web-gallery-app/backend/internal/services"
@@ -16,8 +13,6 @@ import (
 	"github.com/DuckOfTheBooBoo/web-gallery-app/backend/pkg/utils"
 	"github.com/gin-gonic/gin"
 	"github.com/go-playground/validator/v10"
-	"github.com/minio/minio-go/v7"
-	"gorm.io/gorm"
 )
 
 type FileHandler struct {
@@ -199,62 +194,34 @@ func (fh *FileHandler) FilePatch(c *gin.Context) {
 	c.JSON(http.StatusOK, file)
 }
 
-func FileDownload(c *gin.Context) {
-	ctx := context.Background()
-	minioClient := c.MustGet("minio").(*minio.Client)
-	fileID := c.Param("fileID")
-	db := c.MustGet("db").(*gorm.DB)
+func (fh *FileHandler) FileDownload(c *gin.Context) {
+	fileCode := c.Param("fileCode")
 	userClaim := c.MustGet("userClaims").(*utils.UserClaims)
 
-	// Get user bucket name
-	var user models.User
-	if err := db.Where("id = ?", userClaim.ID).First(&user).Error; err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			c.JSON(http.StatusNotFound, gin.H{
-				"error": "User not found",
-			})
-			return
-		}
-
-		c.Status(http.StatusInternalServerError)
-		log.Println(err.Error())
-		return
-	}
-
-	// Get file
-	var file models.File
-	if err := db.Where("id = ? AND user_id = ?", fileID, user.ID).First(&file).Error; err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			c.JSON(http.StatusNotFound, gin.H{
-				"error": "File not found",
-			})
-			return
-		}
-
-		c.Status(http.StatusInternalServerError)
-		log.Println(err.Error())
-		return
-	}
-
-	reqParams := make(url.Values)
-	reqParams.Set("response-content-disposition", "attachment; filename=\""+file.FileName+"\"")
-
-	charsetParam := ""
-	if strings.HasPrefix(file.FileType, "text/") {
-		charsetParam = "; charset=utf-8"
-	}
-
-	reqParams.Set("response-content-type", file.FileType+charsetParam)
-
-	presignedURL, err := minioClient.PresignedGetObject(ctx, user.MinioBucket, file.FileCode, time.Second*24*60*60, reqParams)
-
+	presignedURL, err := fh.FileService.GetPresignedURL(userClaim.ID, fileCode)
 	if err != nil {
+		if errors.Is(err, &apperr.NotFoundError{}) {
+			c.JSON(http.StatusNotFound, gin.H{
+				"error": err.Error(),
+			})
+			return
+		}
+
 		c.Status(http.StatusInternalServerError)
 		log.Println(err.Error())
 		return
 	}
 
-	c.JSON(http.StatusOK, presignedURL)
+	proxy := httputil.NewSingleHostReverseProxy(presignedURL)
+	proxy.Director = func(req *http.Request) {
+		req.Host = presignedURL.Host
+		req.URL.Scheme = presignedURL.Scheme
+		req.URL.Host = presignedURL.Host
+		req.URL.Path = presignedURL.Path
+		req.URL.RawQuery = presignedURL.RawQuery
+	}
+
+	proxy.ServeHTTP(c.Writer, c.Request)
 }
 
 func (h *FileHandler) FileThumbnail(c *gin.Context) {

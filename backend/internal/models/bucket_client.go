@@ -3,6 +3,8 @@ package models
 import (
 	"context"
 	"io"
+	"net/url"
+	"time"
 
 	"github.com/DuckOfTheBooBoo/web-gallery-app/backend/pkg/utils"
 	"github.com/minio/minio-go/v7"
@@ -49,3 +51,6 @@ func (bc *BucketClient) RemoveServiceObject(objectName string, opts minio.Remove
 	return bc.Client.RemoveObject(bc.Context, bc.ServiceBucket, objectName, opts)
 }
 
+func (bc *BucketClient) PresignedGetObject(objectName string, expires time.Duration, reqParams url.Values) (u *url.URL, err error) {
+	return bc.Client.PresignedGetObject(bc.Context, bc.Bucket, objectName, expires, reqParams)
+}
