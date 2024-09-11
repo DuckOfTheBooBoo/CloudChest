@@ -1,0 +1,55 @@
+backend
+├── cmd
+│   └── server
+│       └── main.go
+├── configs
+├── docs
+│   └── database.ml
+├── go.mod
+├── go.sum
+├── internal
+│   ├── api
+│   │   ├── handlers
+│   │   │   ├── file_handler.go
+│   │   │   ├── folder_handler.go
+│   │   │   ├── hls_handler.go
+│   │   │   ├── jwt_handler.go
+│   │   │   └── user_handler.go
+│   │   └── routes
+│   │       ├── file_routes.go
+│   │       ├── folder_routes.go
+│   │       ├── hls_routes.go
+│   │       ├── token_routes.go
+│   │       └── user_routes.go
+│   ├── database
+│   │   ├── database.go
+│   │   ├── migrations
+│   │   │   └── migrate.go
+│   │   └── minio.go
+│   ├── jobs
+│   │   ├── hls_job.go
+│   │   ├── thumbnail_job.go
+│   │   └── write_temp_file_job.go
+│   ├── middlewares
+│   │   ├── db_middleware.go
+│   │   ├── jwt_middleware.go
+│   │   └── minio_middleware.go
+│   ├── models
+│   │   ├── bucket_client.go
+│   │   ├── file.go
+│   │   ├── folder.go
+│   │   ├── minio_file.go
+│   │   ├── thumbnail.go
+│   │   ├── token.go
+│   │   └── user.go
+│   └── services
+│       └── file_service.go
+├── pkg
+│   └── utils
+│       ├── bcrypt.go
+│       ├── file_extension.go
+│       ├── filter_slice.go
+│       ├── load_env.go
+│       ├── parse_token.go
+│       └── prune_revoked_tokens.go
+└── tests

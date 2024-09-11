@@ -25,12 +25,8 @@ export async function getFilesFromCode(folderCode: string): Promise<CloudChestFi
 
 export async function getTrashCan(): Promise<{files: CloudChestFile[]}> {
   try {
-    const response = await axios.get("/api/files", {
-      params: {
-        trashCan: true
-      }
-    });
-    return { files: response.data.files as CloudChestFile[] };
+    const response = await axios.get("/api/files/trashcan");
+    return { files: response.data as CloudChestFile[] };
   } catch (error) {
     console.error(error);
   }
@@ -39,12 +35,8 @@ export async function getTrashCan(): Promise<{files: CloudChestFile[]}> {
 
 export async function getFavoriteFiles(): Promise<{files: CloudChestFile[]}> {
   try {
-    const response = await axios.get("/api/files", {
-      params: {
-        favorite: true,
-      }
-    });
-    return { files: response.data.files as CloudChestFile[] };
+    const response = await axios.get("/api/files/favorite");
+    return { files: response.data as CloudChestFile[] };
   } catch (error) {
     console.error(error);
   }
