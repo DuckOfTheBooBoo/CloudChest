@@ -10,6 +10,7 @@ import (
 
 // Create a struct that holds the client and bucket name
 type BucketClient struct {
+	Context context.Context
 	Client            *minio.Client
 	Bucket        string
 	ServiceBucket string
@@ -24,22 +25,27 @@ func NewBucketClient(minioClient *minio.Client, userClaim utils.UserClaims) *Buc
 }
 
 func (bc *BucketClient) PutObject(objectName string, reader io.Reader, objectSize int64, opts minio.PutObjectOptions) (minio.UploadInfo, error) {
-	return bc.Client.PutObject(context.Background(), bc.Bucket, objectName, reader, objectSize, opts)
+	return bc.Client.PutObject(bc.Context, bc.Bucket, objectName, reader, objectSize, opts)
 }
 
 func (bc *BucketClient) GetObject(objectName string, opts minio.GetObjectOptions) (*minio.Object, error) {
-	return bc.Client.GetObject(context.Background(), bc.Bucket, objectName, opts)
+	return bc.Client.GetObject(bc.Context, bc.Bucket, objectName, opts)
 }
 
 func (bc *BucketClient) GetServiceObject(objectName string, opts minio.GetObjectOptions) (*minio.Object, error) {
-	return bc.Client.GetObject(context.Background(), bc.ServiceBucket, objectName, opts)
+	return bc.Client.GetObject(bc.Context, bc.ServiceBucket, objectName, opts)
 }
 
 
 func (bc *BucketClient) PutServiceObject(objectName string, reader io.Reader, objectSize int64, opts minio.PutObjectOptions) (minio.UploadInfo, error) {
-	return bc.Client.PutObject(context.Background(), bc.ServiceBucket, objectName, reader, objectSize, opts)
+	return bc.Client.PutObject(bc.Context, bc.ServiceBucket, objectName, reader, objectSize, opts)
 }
 
 func (bc *BucketClient) RemoveObject(objectName string, opts minio.RemoveObjectOptions) error {
-	return bc.Client.RemoveObject(context.Background(), bc.Bucket, objectName, opts)
+	return bc.Client.RemoveObject(bc.Context, bc.Bucket, objectName, opts)
 }
+
+func (bc *BucketClient) RemoveServiceObject(objectName string, opts minio.RemoveObjectOptions) error {
+	return bc.Client.RemoveObject(bc.Context, bc.ServiceBucket, objectName, opts)
+}
+

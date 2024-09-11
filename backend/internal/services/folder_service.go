@@ -19,6 +19,7 @@ import (
 	gonanoid "github.com/matoous/go-nanoid/v2"
 	"github.com/minio/minio-go/v7"
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
 
 type FolderService struct {
@@ -484,4 +485,181 @@ func (fs *FolderService) CreateFolder(folderName, parentFolderCode string, userI
 	}
 
 	return &newFolder, nil
+}
+
+// DeleteFolderTemp deletes a folder temporarily. If the folder is not found, it returns a NotFoundError.
+// If other errors occur, it returns a ServerError.
+func (fs *FolderService) DeleteFolderTemp(folderCode string, userID uint) error {
+	targetFolder := models.Folder{
+		UserID: userID,
+		Code:   folderCode,
+	}
+
+	if err := fs.DB.Where("code = ? AND user_id = ?", folderCode, userID).Delete(&targetFolder).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return &apperr.NotFoundError{
+				BaseError: &apperr.BaseError{
+					Message: "Folder not found",
+					Err: err,
+				},
+			}
+		}
+
+		return &apperr.ServerError{
+			BaseError: &apperr.BaseError{
+				Message: "Failed to delete folder",
+				Err: err,
+			},
+		}
+	}
+
+	return nil
+}
+
+
+// DeleteFolderPermanent deletes a folder and all its contents permanently. If the folder is not found, it returns a NotFoundError.
+// If other errors occur, it returns a ServerError.
+func (fs *FolderService) DeleteFolderPermanent(folderCode string, userID uint) error {
+	var targetFolder models.Folder
+	if err := fs.DB.Unscoped().Where("code = ? AND user_id = ?", folderCode, userID).First(&targetFolder).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return &apperr.NotFoundError{
+				BaseError: &apperr.BaseError{
+					Message: "Folder not found",
+					Err: err,
+				},
+			}
+		}
+
+		return &apperr.ServerError{
+			BaseError: &apperr.BaseError{
+				Message: "Failed to delete folder",
+				Err: err,
+			},
+		}
+	}
+
+	log.Println(targetFolder)
+	// if targetFolder.ID == 0 {
+	// 	log.Panicf("Folder with code %s not found", folderCode)
+	// }
+
+	if err := fs.loadFolders(&targetFolder); err != nil {
+		return &apperr.ServerError{
+			BaseError: &apperr.BaseError{
+				Message: "Failed to load folder",
+				Err: err,
+			},
+		}
+	}
+
+	if err := fs.processFolder(&targetFolder); err != nil {
+		return &apperr.ServerError{
+			BaseError: &apperr.BaseError{
+				Message: "Failed to delete folder",
+				Err: err,
+			},
+		}
+	}
+
+	return nil
+}
+
+// loadFolders preloads the immediate child folders of the given folder, and then
+// recursively loads all the children of each child folder. It returns an error if
+// any of the loads fail.
+func (fs *FolderService) loadFolders(folder *models.Folder) error {
+	// Preload immediate child folders
+	if err := fs.DB.Preload(clause.Associations).Find(&folder).Error; err != nil {
+		return err
+	}
+
+	// Recursively load children of each child folder
+	for i := range folder.ChildFolders {
+		if err := fs.loadFolders(folder.ChildFolders[i]); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+// processFolder recursively deletes all files and child folders of the given folder.
+// This is called by DeleteFolderPermanent.
+func (fs *FolderService) processFolder(folder *models.Folder) error {
+	bc := fs.BucketClient
+	for _, child := range(folder.ChildFolders) {
+		if err := fs.processFolder(child); err != nil {
+			return err
+		}
+	}
+
+	var toBeDeletedFiles []*models.File
+	var filesThumbnail []*models.Thumbnail
+	for _, file := range(folder.Files) {
+		log.Printf("Deleting file %s (%s)\n", file.FileName, file.FileCode)
+		toBeDeletedFiles = append(toBeDeletedFiles, file)
+		if file.Thumbnail != nil {
+			filesThumbnail = append(filesThumbnail, file.Thumbnail)
+		}
+	}
+
+	// Delete thumbnails from DB
+	if len(filesThumbnail) > 0 {
+		if err := fs.DB.Unscoped().Delete(&filesThumbnail).Error; err != nil {
+			return err
+		}
+	
+		thumbObjCh := make(chan minio.ObjectInfo)
+		go func() {
+			defer close(thumbObjCh)
+			for _, thumb := range filesThumbnail {
+				if len(toBeDeletedFiles) > 0 {
+					obj := minio.ObjectInfo{
+						Key: thumb.FilePath,
+					}
+					thumbObjCh <- obj
+				}
+			}
+		}()
+	
+		for err := range bc.Client.RemoveObjects(bc.Context, bc.ServiceBucket, thumbObjCh, minio.RemoveObjectsOptions{}) {
+			if err.Err != nil {
+				return err.Err
+			}
+		}
+	}
+
+	// Delete files from DB
+	if len(toBeDeletedFiles) > 0 {
+		if err := fs.DB.Unscoped().Delete(&toBeDeletedFiles).Error; err != nil {
+			return err
+		}
+	}
+
+	objectsCh := make(chan minio.ObjectInfo)
+	go func() {
+		defer close(objectsCh)
+		for _, file := range toBeDeletedFiles {
+			if len(toBeDeletedFiles) > 0 {
+				obj := minio.ObjectInfo{
+					Key: file.FileCode,
+				}
+				objectsCh <- obj
+			}
+		}
+	}()
+
+	for err := range bc.Client.RemoveObjects(bc.Context, bc.Bucket, objectsCh, minio.RemoveObjectsOptions{}) {
+		if err.Err != nil {
+			return err.Err
+		}
+	}
+
+	log.Printf("Deleting folder %s (%s)\n", folder.Name, folder.Code)
+	if err := fs.DB.Unscoped().Delete(&folder).Error; err != nil {
+		return err
+	}
+
+	return nil
 }

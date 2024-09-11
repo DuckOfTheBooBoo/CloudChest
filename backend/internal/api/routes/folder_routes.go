@@ -18,6 +18,6 @@ func FolderRoutes(route *gin.RouterGroup, folderHandler *handlers.FolderHandler,
 		folder.GET("/:code/folders", middlewares.JWTMiddleware(), folderHandler.FolderList)
 		folder.POST("/:code/files", middlewares.JWTMiddleware(), middlewares.MinIOMiddleware(folderHandler.FolderService, mc), folderHandler.FolderContentsCreate)
 		folder.POST("/:code/folders", middlewares.JWTMiddleware(), folderHandler.FolderCreate)
-		folder.DELETE("/:code", middlewares.JWTMiddleware(), handlers.FolderDelete)
+		folder.DELETE("/:code", middlewares.JWTMiddleware(), middlewares.MinIOMiddleware(folderHandler.FolderService, mc), folderHandler.FolderDelete)
 	}
 }
