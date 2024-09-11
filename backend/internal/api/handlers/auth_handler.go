@@ -19,7 +19,7 @@ func NewAuthHandler(authService *services.AuthService) *AuthHandler {
 	}
 }
 
-func (authH *AuthHandler) UserLogin(c *gin.Context) {
+func (ah *AuthHandler) UserLogin(c *gin.Context) {
 	validate := validator.New()
 	domain := c.Query("referer")
 
@@ -51,7 +51,7 @@ func (authH *AuthHandler) UserLogin(c *gin.Context) {
 		return
 	}
 
-	accessToken, err := authH.AuthService.Login(loginBody.Email, loginBody.Password)
+	accessToken, err := ah.AuthService.Login(loginBody.Email, loginBody.Password)
 	if err != nil {
 		switch e := err.(type) {
 			case *apperr.NotFoundError:
@@ -68,9 +68,14 @@ func (authH *AuthHandler) UserLogin(c *gin.Context) {
 		}
 	}
 
-	c.SetCookie("token", accessToken, 60*60, "/", domain, false, true)
+	c.SetCookie("token", accessToken, 60*60, "/", c.Request.Host, false, true)
 
 	c.JSON(http.StatusOK, gin.H{
 		"token": accessToken,
 	})
+}
+
+func (ah *AuthHandler) UserLogout(c *gin.Context) {
+	c.SetCookie("token", "", -1, "/", c.Request.Host, false, true)
+	c.Status(http.StatusOK)
 }

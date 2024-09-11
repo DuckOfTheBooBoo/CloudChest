@@ -9,5 +9,6 @@ func AuthRoutes(route *gin.RouterGroup, authHandler *handlers.AuthHandler) {
 	auth := route.Group("/auth") 
 	{
 		auth.POST("/login", authHandler.UserLogin)
+		auth.POST("/logout", authHandler.UserLogout)
 	}
 }
