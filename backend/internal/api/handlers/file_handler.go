@@ -227,10 +227,11 @@ func (fh *FileHandler) FileDownload(c *gin.Context) {
 func (h *FileHandler) FileThumbnail(c *gin.Context) {
 	fileCode := c.Param("fileCode")
 	userClaim := c.MustGet("userClaims").(*utils.UserClaims)
+	isDeleted := c.DefaultQuery("deleted", "false") == "true"
 
 	thumbnailService := services.NewThumbnailService(h.FileService.DB, h.FileService.BucketClient)
 
-	thumbnail, err := thumbnailService.GetThumbnail(fileCode, userClaim.ID)
+	thumbnail, err := thumbnailService.GetThumbnail(fileCode, userClaim.ID, isDeleted)
 	if err != nil {
 		if errors.Is(err, &apperr.InvalidParamError{}) {
 			c.JSON(http.StatusBadRequest, gin.H{

@@ -1,10 +1,10 @@
 <script setup lang="ts">
-import { ref, inject } from "vue";
+import { ref, inject, computed } from "vue";
 import { formatDistance } from "date-fns";
 import { fileDetailFormatter } from "../utils/fileDetailFormatter";
 import Filename from "./Filename.vue";
 import { type CloudChestFile } from "../models/file";
-import { trashFile, updateFile, downloadFile, patchFile } from "../utils/filesApi";
+import { trashFile, updateFile, patchFile } from "../utils/filesApi";
 import { type FilePatchRequest } from "../models/requestModel";
 
 const props = defineProps<{
@@ -89,7 +89,7 @@ async function pruneFile(): Promise<void> {
 
 async function renameFile(): Promise<void> {
   const originalExtension: string | undefined = props.file.FileName.split('.').pop();
-  const newFilename: string = renameFilePlaceholder.value + ('.' + originalExtension) ?? "";
+  const newFilename: string = renameFilePlaceholder.value + ('.' + originalExtension);
   const requestBody: FilePatchRequest = {
     file_name: newFilename,
   }
@@ -110,6 +110,14 @@ const rules = {
   required: (value: string) => !!value || 'Filename cannot be empty',
 };
 
+const thumbnailURL = computed(() => {
+  let url: string = `/api/files/${file.FileCode}/thumbnail`;
+  if (file.DeletedAt) {
+    url += '?deleted=true'
+  }
+  return url;
+})
+
 </script>
 
 <template>
@@ -123,7 +131,7 @@ const rules = {
         <div class="tw-h-[100px] tw-flex tw-items-center tw-justify-center tw-text-4xl" v-if="!file.FileType.includes('image/') && !file.FileType.includes('video/')">
           <v-icon>{{ categoryToMDIIcon[mimeTypeToCategoryMap[file.FileType]] }}</v-icon>
         </div>
-        <v-img v-else height="100" :src="`/api/files/${file.FileCode}/thumbnail`" cover alt="No thumbnail"></v-img>
+        <v-img v-else height="100" :src="thumbnailURL" cover alt="No thumbnail"></v-img>
 
         <v-card-item>
           <div class="tw-flex tw-flex-row tw-h-full tw-w-full tw-items-center tw-justify-between">
@@ -135,8 +143,7 @@ const rules = {
             <v-list>
 
               <!-- RENAME FILE -->
-              <!-- TODO: hide if file is deleted -->
-              <v-list-item @click="() => {renameFilePlaceholder = file.FileName.slice(0, -4)}">
+              <v-list-item v-if="!file.DeletedAt" @click="() => {renameFilePlaceholder = file.FileName.slice(0, -4)}">
                 <v-icon>mdi-pencil</v-icon> Rename
 
                 <v-dialog activator="parent" max-width="500px">
@@ -169,14 +176,12 @@ const rules = {
               </v-list-item>
 
               <!-- DOWNLOAD -->
-              <!-- TODO: hide if file is deleted -->
-              <v-list-item @click="getFileURL">
+              <v-list-item v-if="!file.DeletedAt" @click="getFileURL">
                 <v-icon>mdi-download</v-icon> Download
               </v-list-item>
 
               <!-- MOVE FILE -->
-              <!-- TODO: hide if file is deleted -->
-              <v-list-item @click="moveFile">
+              <v-list-item v-if="!file.DeletedAt" @click="moveFile">
                 <v-icon>mdi-folder-arrow-right</v-icon> <span class="tw-ml-1">Move to</span>
               </v-list-item>
 

@@ -340,9 +340,16 @@ func (ts *ThumbnailService) DeleteThumbnail(thumbnail *models.Thumbnail) error {
 	return nil
 }
 
-func (ts *ThumbnailService) GetThumbnail(fileCode string, userID uint) (*minio.Object, error) {
+func (ts *ThumbnailService) GetThumbnail(fileCode string, userID uint, isDeleted bool) (*minio.Object, error) {
 	var file models.File
-	if err := ts.DB.Model(&models.File{}).Where("file_code = ? AND user_id = ?", fileCode, userID).Preload("Thumbnail").First(&file).Error; err != nil {
+
+	query := ts.DB.Model(&models.File{}).Where("file_code = ? AND user_id = ?", fileCode, userID)
+
+	if isDeleted {
+		query = query.Unscoped()
+	}
+
+	if err := query.Preload("Thumbnail").First(&file).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, &apperr.NotFoundError{
 				BaseError: &apperr.BaseError{
