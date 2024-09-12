@@ -1,17 +1,30 @@
 <script setup lang="ts">
+// Libraries
 import axios from "axios";
+
+// Vue & Vue Router
 import { ref, mergeProps, provide } from "vue";
 import { useRouter, useRoute } from "vue-router";
+// Pinia
 import { useEventEmitterStore } from "../stores/eventEmitterStore"
-import { FILE_UPDATED } from "../constants"
-import { createNewFolder, patchFolder } from "../utils/foldersApi";
-import { CloudChestFile } from "../models/file";
-import { downloadFile, patchFile } from "../utils/filesApi";
-import AxiosManager from "./AxiosManager.vue";
 import {useAxiosManagerStore} from "../stores/axiosManagerStore";
-import FolderListNavigator from "./FolderListNavigator.vue";
-import type Folder from "../models/folder";
+
+// Local imports
+import { FILE_UPDATED } from "../constants"
 import isFolder from "../utils/isFolder";
+
+// API
+import { createNewFolder, patchFolder } from "../utils/foldersApi";
+import { patchFile } from "../utils/filesApi";
+
+// Models & type
+import { CloudChestFile } from "../models/file";
+import type Folder from "../models/folder";
+
+// Components
+import AxiosManager from "./AxiosManager.vue";
+import FolderListNavigator from "./FolderListNavigator.vue";
+import Previewer from "./Previewer.vue";
 
 const selectedNav = ref(0);
 const router = useRouter();
@@ -77,15 +90,6 @@ const rules = {
   required: (value: string) => !!value || 'Field is required',
 };
 
-async function getFileURL(): Promise<string> {
-  const resp = await downloadFile(selectedFile.value!.ID)
-  if (resp) {
-    const downloadFileUrl: string = `${resp.Scheme}://${resp.Host}${resp.Path}?${resp.RawQuery}`;
-    return downloadFileUrl
-  }
-
-  return '';
-}
 
 function handleFileChange(file: CloudChestFile): void {
   overlayVisible.value = true;
@@ -158,46 +162,7 @@ provide('showFileNavigatorDialog', showFileNavigatorDialog);
 
   <v-layout class="rounded rounded-md tw-relative">
     <AxiosManager v-if="axiosManager.ongoingRequests.length > 0" class="tw-fixed tw-box-border tw-bottom-0 tw-right-0 tw-z-10" />
-    <v-overlay v-model="overlayVisible" scroll-strategy="block">
-      <v-toolbar class="tw-w-screen" density="comfortable">
-        <v-toolbar-title>{{ selectedFile?.FileName }}</v-toolbar-title>
-
-        <v-spacer></v-spacer>
-
-        <v-btn @click="handlePreviewClose" icon>
-          <v-icon>mdi-close</v-icon>
-        </v-btn>
-      </v-toolbar>
-
-      <div class="tw-py-6 tw-flex tw-justify-center tw-items-center tw-drop-shadow-xl">
-        <v-img v-if="previewable && selectedFile?.FileType.includes('image/')" :src="fileURL"
-          class="tw-h-[calc(100dvh-100px)]">
-          <template v-slot:placeholder>
-            <div class="d-flex align-center justify-center fill-height">
-              <v-progress-circular color="grey-lighten-4" indeterminate></v-progress-circular>
-            </div>
-          </template>
-        </v-img>
-        <media-controller class="tw-h-[calc(100dvh-100px)]" v-else-if="previewable && selectedFile?.FileType.includes('video/')">
-          <hls-video :src="`/api/hls/${selectedFile?.FileCode}/masterPlaylist`" slot="media"
-            crossorigin muted></hls-video>
-          <media-loading-indicator slot="centered-chrome" noautohide></media-loading-indicator>
-          <media-control-bar>
-            <media-play-button></media-play-button>
-            <media-seek-backward-button></media-seek-backward-button>
-            <media-seek-forward-button></media-seek-forward-button>
-            <media-mute-button></media-mute-button>
-            <media-volume-range></media-volume-range>
-            <media-time-range></media-time-range>
-            <media-time-display showduration remaining></media-time-display>
-            <media-playback-rate-button></media-playback-rate-button>
-            <media-fullscreen-button></media-fullscreen-button>
-          </media-control-bar>
-        </media-controller>
-        <p v-else class="tw-text-2xl">This file is does not have a preview.</p>
-      </div>
-
-    </v-overlay>
+    <Previewer :visible="overlayVisible" :file="selectedFile" @on:close="handlePreviewClose" />
 
     <v-app-bar>
       <v-menu>
