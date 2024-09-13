@@ -66,6 +66,11 @@ function handleFolderCodeChange(newFolderCode: string) {
   emit('folder:select', newFolderCode)
   router.push({ name: 'explorer-files-code', params: { code: newFolderCode } })
 }
+
+function handlePatchedFolder(patchedFolder: FolderModel) {
+  const index: number = folderList.value.findIndex((folder: FolderModel) => folder.Code === patchedFolder.Code);
+  folderList.value.splice(index, 1, patchedFolder)
+}
 </script>
 
 <template>
@@ -97,7 +102,7 @@ function handleFolderCodeChange(newFolderCode: string) {
             <v-col v-for="folder in folderList" :key="folder" :cols="2">
               <v-item v-slot="{ isSelected, toggle }">
                 <Folder :folder="folder" :parent-path="decodeURIComponent(folderCode)"
-                  @folder-code:change="handleFolderCodeChange" :is-selected="isSelected" @click="toggle" />
+                  @folder-code:change="handleFolderCodeChange" :is-selected="isSelected" @click="toggle" @folder-state:update="handlePatchedFolder" />
               </v-item>
             </v-col>
           </v-row>

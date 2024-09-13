@@ -44,8 +44,8 @@ export async function patchFolder(folderCode: string, patchRequest: FolderPatchR
     try {
         const response = await axios.patch(`/api/folders/${folderCode}`, patchRequest);
         const folder: Folder = response.data as Folder;
-        const eventEmitter = useEventEmitterStore();
-        eventEmitter.eventEmitter.emit(FOLDER_UPDATED);
+        // const eventEmitter = useEventEmitterStore();
+        // eventEmitter.eventEmitter.emit(FOLDER_UPDATED);
         return folder;
     } catch (error) {
         console.error(error);

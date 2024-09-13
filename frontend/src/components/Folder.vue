@@ -15,7 +15,8 @@ const props = defineProps<{
 }>();
 
 const emit = defineEmits<{
-  (e: "folderCode:change", newFolderCode: string): void
+  (e: "folderCode:change", newFolderCode: string): void;
+  (e: "folderState:update", updatedFolder: Folder): void;
 }>();
 
 const showFileNavigatorDialog: ((file: Folder) => void) | undefined = inject('showFileNavigatorDialog')
@@ -31,6 +32,14 @@ async function renameFolder(): Promise<void> {
   await patchFolder(props.folder.Code, request)
 }
 
+async function toggleFavorite(): Promise<void> {
+  const isFavorite: boolean = !props.folder.IsFavorite;
+  const request: FolderPatchRequest = {
+    is_favorite: isFavorite
+  }
+  const patchedFolder: Folder = await patchFolder(props.folder.Code, request);
+  emit('folderState:update', patchedFolder);
+}
 
 function moveFolder(): void {
   showFileNavigatorDialog?.(props.folder)
@@ -110,8 +119,10 @@ function moveFolder(): void {
                 <v-icon>mdi-information-outline</v-icon> Details
               </v-list-item>
 
-              <!-- TODO: TOGGLE FAVORITE FILES -->
-              <v-list-item @click="() => {}" v-if="!folder.DeletedAt">
+              <!-- TOGGLE FAVORITE FOLDER -->
+              <v-list-item @click="toggleFavorite" v-if="!folder.DeletedAt">
+                <span v-if="!folder.IsFavorite"><v-icon>mdi-star-outline</v-icon>Mark as favorite</span>
+                <span v-else><v-icon>mdi-star</v-icon>Unfavorite</span>
               </v-list-item>
 
               <!-- TODO: DELETE FOLDER -->
