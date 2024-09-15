@@ -21,6 +21,11 @@ type FolderHierarchy struct {
 	Code string `json:"code"`
 }
 
+type FolderResponse struct {
+	Folders []*Folder `json:"folders"`
+	Hierarchies []FolderHierarchy `json:"hierarchies"`
+}
+
 type FolderUpdateBody struct {
 	FolderName       string `json:"folder_name"`
 	IsFavorite       bool   `validate:"boolean" json:"is_favorite"`

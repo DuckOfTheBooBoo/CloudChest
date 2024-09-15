@@ -30,10 +30,17 @@ func NewFolderHandler(fs *services.FolderService) *FolderHandler {
 func (fh *FolderHandler) FolderList(c *gin.Context) {
 	userClaim := c.MustGet("userClaims").(*utils.UserClaims)
 	folderCode := c.Param("code")
+	
+	var folderResp *models.FolderResponse
+	var err error
 
+	// Dirty workaround but meh
+	if folderCode == "favorite" {
+		folderResp, err = fh.FolderService.ListFavoriteFolders(userClaim.ID) 
+	} else {
+		folderResp, err = fh.FolderService.ListFolders(userClaim.ID, folderCode)
+	}
 
-
-	folderResp, err := fh.FolderService.ListFolders(userClaim.ID, folderCode)
 	if err != nil {
 		switch e := err.(type) {
 			case *apperr.NotFoundError:

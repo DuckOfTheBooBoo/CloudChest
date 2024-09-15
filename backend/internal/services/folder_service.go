@@ -43,11 +43,6 @@ func (fs *FolderService) SetBucketClient(bc *models.BucketClient) {
 	fs.BucketClient = bc
 }
 
-type FolderResponse struct {
-	Folders []*models.Folder `json:"folders"`
-	Hierarchies []models.FolderHierarchy `json:"hierarchies"`
-}
-
 const (
 	MAX_PREVIEWABLE_VIDEO_SIZE = 150 * 1000 * 1000
 )
@@ -61,7 +56,7 @@ const (
 //
 // If the folder is not found, it returns a NotFoundError.
 // If other errors occur, it returns a ServerError.
-func (fs *FolderService) ListFolders(userID uint, folderCode string) (*FolderResponse, error) {
+func (fs *FolderService) ListFolders(userID uint, folderCode string) (*models.FolderResponse, error) {
 
 	var parentFolder models.Folder
 	query := fs.DB.Where("user_id = ? AND (code IS NULL OR code = '')", userID)
@@ -123,9 +118,25 @@ func (fs *FolderService) ListFolders(userID uint, folderCode string) (*FolderRes
 		Code: parentFolder.Code,
 	})
 
-	return &FolderResponse{
+	return &models.FolderResponse{
 		Folders: parentFolder.ChildFolders,
 		Hierarchies: hierarchies,
+	}, nil
+}
+
+func (fs *FolderService) ListFavoriteFolders(userID uint) (*models.FolderResponse, error) {
+	var favoriteFolders []*models.Folder
+	if err := fs.DB.Where("user_id = ? AND is_favorite = ?", userID, true).Find(&favoriteFolders).Error; err != nil {
+		return nil, &apperr.ServerError{
+			BaseError: &apperr.BaseError{
+				Message: "Failed to list favorite folders",
+				Err: err,
+			},
+		}
+	}
+
+	return &models.FolderResponse{
+		Folders: favoriteFolders,
 	}, nil
 }
 

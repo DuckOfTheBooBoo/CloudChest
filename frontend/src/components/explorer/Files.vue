@@ -71,6 +71,11 @@ function handlePatchedFolder(patchedFolder: FolderModel) {
   const index: number = folderList.value.findIndex((folder: FolderModel) => folder.Code === patchedFolder.Code);
   folderList.value.splice(index, 1, patchedFolder)
 }
+
+function handlePatchedFile(patchedFile: CloudChestFile) {
+  const index: number = fileList.value.findIndex((file: CloudChestFile) => file.FileCode === patchedFile.FileCode);
+  fileList.value.splice(index, 1, patchedFile)
+}
 </script>
 
 <template>
@@ -116,7 +121,7 @@ function handlePatchedFolder(patchedFolder: FolderModel) {
       </div>
       <v-row>
         <v-col v-for="file in fileList" :key="file" :cols="2">
-          <File :file="file" @dblclick="emit('file:select', file)" />
+          <File :file="file" @dblclick="emit('file:select', file)" @file-state:update="handlePatchedFile" />
         </v-col>
       </v-row>
     </div>

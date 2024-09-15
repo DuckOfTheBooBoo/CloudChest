@@ -100,9 +100,9 @@ export async function patchFile(file: CloudChestFile, patchRequest: FilePatchReq
   return false;
 }
 
-export async function downloadFile(fileID: number): Promise<PresignedURL> {
+export async function downloadFile(fileCode: string): Promise<PresignedURL> {
   try {
-    const response = await axios.get(`/api/files/${fileID}/download`);
+    const response = await axios.get(`/api/files/${fileCode}/download`);
     return response.data as PresignedURL;
   } catch (error) {
     console.error(error);

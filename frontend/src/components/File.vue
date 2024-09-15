@@ -12,7 +12,8 @@ const props = defineProps<{
 }>();
 
 const emit = defineEmits<{
-  (e: "dblclick"): void
+  (e: "dblclick"): void;
+  (e: "file-state:update", newFile: CloudChestFile): void
 }>();
 
 const file = props.file;
@@ -69,6 +70,7 @@ async function toggleFavorite(): Promise<void> {
   const isSuccessful: boolean = await updateFile(fileCopy, false);
   if (isSuccessful) {
     file.IsFavorite = !file.IsFavorite
+    emit('file-state:update', file)
   }
 }
 
