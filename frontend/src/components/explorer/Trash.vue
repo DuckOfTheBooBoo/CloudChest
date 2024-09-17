@@ -3,29 +3,70 @@ import { Ref, ref, onBeforeMount } from "vue";
 import { CloudChestFile } from "../../models/file";
 import File from "../File.vue";
 import { getTrashCan, emptyTrashCan } from "../../utils/filesApi";
+import { getDeletedFolders } from "../../utils/foldersApi";
 import { useEventEmitterStore } from "../../stores/eventEmitterStore";
-import { FILE_UPDATED } from "../../constants";
+import Folder from "../Folder.vue";
+import type FolderModel from "../../models/folder";
 
-const fileList: Ref<CloudChestFile[]> = ref([] as CloudChestFile[]);
+const deletedFilesList: Ref<CloudChestFile[]> = ref([] as CloudChestFile[]);
+const deletedFoldersList: Ref<FolderModel[]> = ref([] as FolderModel[]);
+
+// const eventEmitter = useEventEmitterStore();
+const folderCode = ref('root');
+const isFoldersLoading = ref<boolean>(false);
+const isFilesLoading = ref<boolean>(false);
 const confirmDialogVisible: Ref<boolean> = ref<boolean>(false);
 
-const eventEmitter = useEventEmitterStore();
+const evStore = useEventEmitterStore();
 
-eventEmitter.eventEmitter.on(FILE_UPDATED, fetchTrashCan);
+/**
+ * If file is permanently deleted or restored, remove it from the list of deleted files and deleted folders in Trash.vue
+ */
+evStore.getEventEmitter.on("FOLDER_DELETED_PERM", (deletedObjects) => {
+  deletedFoldersList.value = deletedFoldersList.value.filter((folder: FolderModel) => !deletedObjects.deleted_folders.includes(folder.Code));
+  deletedFilesList.value = deletedFilesList.value.filter((file: CloudChestFile) => !deletedObjects.deleted_files.includes(file.FileCode));
+});
+
+// FOLDER_UPDATED only occurs on Trash.vue if folder is restored, thus remove it from the list
+evStore.getEventEmitter.on("FOLDER_UPDATED", (updatedfolder: FolderModel) => {
+  deletedFoldersList.value = deletedFoldersList.value.filter((folder: FolderModel) => folder.Code !== updatedfolder.Code);
+})
 
 const isLoading = ref<boolean>(false);
 
 onBeforeMount(fetchTrashCan);
 
-async function fetchTrashCan(): Promise<void> {
-  isLoading.value = true;
+function fetchTrashCan(): void {
+  fetchDeletedFiles();
+  fetchDeletedFolders();
+}
+
+async function fetchDeletedFiles(): Promise<void> {
+  isFilesLoading.value = true;
   const response = await getTrashCan();
-  fileList.value = response.files;
-  isLoading.value = false;
+  deletedFilesList.value = response.files;
+  isFilesLoading.value = false;
+}
+
+async function fetchDeletedFolders(): Promise<void> {
+  isFoldersLoading.value = true;
+  const response = await getDeletedFolders();
+  deletedFoldersList.value = response.folders;
+  isFoldersLoading.value = false;
 }
 
 async function pruneAllFiles(): Promise<void> {
   await emptyTrashCan();
+}
+
+// If folder is permanently deleted or restored, remove it from the list
+function handlePatchedFolder(patchedFolder: FolderModel) {
+  deletedFoldersList.value = deletedFoldersList.value.filter((folder: FolderModel) => folder.Code !== patchedFolder.Code)
+}
+
+// If file is permanently deleted or restored, remove it from the list
+function handlePatchedFile(patchedFile: CloudChestFile) {
+  deletedFilesList.value = deletedFilesList.value.filter((file: CloudChestFile) => file.FileCode !== patchedFile.FileCode)
 }
 </script>
 
@@ -58,11 +99,34 @@ async function pruneAllFiles(): Promise<void> {
         </template>
       </v-tooltip>
     </div>
-    <v-row>
-      <v-col v-for="file in fileList" :key="file" :cols="2">
-        <File :file="file" />
-      </v-col>
-    </v-row>
+    <div>
+      <h1 class="tw-mb-3 tw-text-3xl">Deleted Folders</h1>
+      <div class="tw-min-h-1">
+        <v-progress-linear v-if="isFoldersLoading" :indeterminate="true" color="primary"></v-progress-linear>
+      </div>
+      <v-item-group multiple>
+        <v-container>
+          <v-row>
+            <v-col v-for="folder in deletedFoldersList" :key="folder" :cols="2">
+              <v-item v-slot="{ isSelected, toggle }">
+                <Folder :folder="folder" :parent-path="decodeURIComponent(folderCode)" :is-selected="isSelected" @click="toggle" @folder-state:update="handlePatchedFolder" />
+              </v-item>
+            </v-col>
+          </v-row>
+        </v-container>
+      </v-item-group>
+    </div>
+    <div>
+      <h1 class="tw-mb-3 tw-text-3xl">Deleted Files</h1>
+      <div class="tw-min-h-1">
+        <v-progress-linear v-if="isFilesLoading" :indeterminate="true" color="primary"></v-progress-linear>
+      </div>
+      <v-row>
+        <v-col v-for="file in deletedFilesList" :key="file" :cols="2">
+          <File :file="file" @file-state:update="handlePatchedFile" />
+        </v-col>
+      </v-row>
+    </div>
   </v-container>
 </template>
 

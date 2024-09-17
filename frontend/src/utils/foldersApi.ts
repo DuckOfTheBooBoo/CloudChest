@@ -38,14 +38,25 @@ export async function getFavoriteFolders(): Promise<getFoldersResponse> {
     } as getFoldersResponse;
 }
 
+export async function getDeletedFolders(): Promise<getFoldersResponse> {
+    try {
+        const response = await axios.get(`/api/folders/trashcan`);
+        return response.data as getFoldersResponse;
+    } catch (error) {
+        console.error(error);
+    }
+
+    return {} as getFoldersResponse;
+}
+
 export async function createNewFolder(parentFolderCode: string, folderName: string): Promise<Folder> {
     try {
         const response = await axios.post(`/api/folders/${parentFolderCode}/folders`, {
             "folder_name": folderName,
         });
         const folder: Folder = response.data as Folder;
-        const eventEmitter = useEventEmitterStore();
-        eventEmitter.eventEmitter.emit(FOLDER_UPDATED);
+        // const eventEmitter = useEventEmitterStore();
+        // eventEmitter.eventEmitter.emit(FOLDER_UPDATED);
         return folder;
     } catch (error) {
         console.error(error);
@@ -66,4 +77,26 @@ export async function patchFolder(folderCode: string, patchRequest: FolderPatchR
     }
 
     return {} as Folder;
+}
+
+export async function deleteFolderTemp(folderCode: string): Promise<void> {
+    try {
+        await axios.delete(`/api/folders/${folderCode}?trash=true`);
+    } catch (error) {
+        console.error(error);
+    }
+}
+
+export async function deleteFolderPermanent(folderCode: string): Promise<{deleted_files: string[], deleted_folders: string[]}> {
+    try {
+        const response = await axios.delete(`/api/folders/${folderCode}?trash=false`);
+        return {
+            deleted_files: response.data.deleted_files,
+            deleted_folders: response.data.deleted_folders
+        }
+    } catch (error) {
+        console.error(error);
+    }
+
+    return {} as {deleted_files: string[], deleted_folders: string[]};
 }

@@ -140,6 +140,22 @@ func (fs *FolderService) ListFavoriteFolders(userID uint) (*models.FolderRespons
 	}, nil
 }
 
+func (fs *FolderService) ListTrashFolders(userID uint) (*models.FolderResponse, error) {
+	var trashFolders []*models.Folder
+	if err := fs.DB.Unscoped().Where("user_id = ? AND deleted_at IS NOT NULL", userID).Find(&trashFolders).Error; err != nil {
+		return nil, &apperr.ServerError{
+			BaseError: &apperr.BaseError{
+				Message: "Failed to list trash folders",
+				Err: err,
+			},
+		}
+	}
+
+	return &models.FolderResponse{
+		Folders: trashFolders,
+	}, nil
+}
+
 // PatchFolder updates a folder. If folderUpdateBody.Restore is true, it will restore a soft-deleted folder.
 func (fs *FolderService) PatchFolder(userID uint, folderCode string, folderUpdateBody models.FolderUpdateBody) (*models.Folder, error) {
 	var folder models.Folder
@@ -528,13 +544,18 @@ func (fs *FolderService) DeleteFolderTemp(folderCode string, userID uint) error 
 }
 
 
+type DeletedFilesAndFoldersList struct {
+	DeletedFiles []string `json:"deleted_files"`
+	DeletedFolders []string `json:"deleted_folders"`
+}
+
 // DeleteFolderPermanent deletes a folder and all its contents permanently. If the folder is not found, it returns a NotFoundError.
 // If other errors occur, it returns a ServerError.
-func (fs *FolderService) DeleteFolderPermanent(folderCode string, userID uint) error {
+func (fs *FolderService) DeleteFolderPermanent(folderCode string, userID uint) (*DeletedFilesAndFoldersList, error) {
 	var targetFolder models.Folder
 	if err := fs.DB.Unscoped().Where("code = ? AND user_id = ?", folderCode, userID).First(&targetFolder).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return &apperr.NotFoundError{
+			return nil, &apperr.NotFoundError{
 				BaseError: &apperr.BaseError{
 					Message: "Folder not found",
 					Err: err,
@@ -542,7 +563,7 @@ func (fs *FolderService) DeleteFolderPermanent(folderCode string, userID uint) e
 			}
 		}
 
-		return &apperr.ServerError{
+		return nil, &apperr.ServerError{
 			BaseError: &apperr.BaseError{
 				Message: "Failed to delete folder",
 				Err: err,
@@ -550,13 +571,8 @@ func (fs *FolderService) DeleteFolderPermanent(folderCode string, userID uint) e
 		}
 	}
 
-	log.Println(targetFolder)
-	// if targetFolder.ID == 0 {
-	// 	log.Panicf("Folder with code %s not found", folderCode)
-	// }
-
 	if err := fs.loadFolders(&targetFolder); err != nil {
-		return &apperr.ServerError{
+		return nil, &apperr.ServerError{
 			BaseError: &apperr.BaseError{
 				Message: "Failed to load folder",
 				Err: err,
@@ -564,8 +580,13 @@ func (fs *FolderService) DeleteFolderPermanent(folderCode string, userID uint) e
 		}
 	}
 
-	if err := fs.processFolder(&targetFolder); err != nil {
-		return &apperr.ServerError{
+	var deletedObjects DeletedFilesAndFoldersList = DeletedFilesAndFoldersList{
+		DeletedFiles: []string{},
+		DeletedFolders: []string{},
+	}
+
+	if err := fs.processFolder(&deletedObjects, &targetFolder); err != nil {
+		return nil, &apperr.ServerError{
 			BaseError: &apperr.BaseError{
 				Message: "Failed to delete folder",
 				Err: err,
@@ -573,7 +594,7 @@ func (fs *FolderService) DeleteFolderPermanent(folderCode string, userID uint) e
 		}
 	}
 
-	return nil
+	return &deletedObjects, nil
 }
 
 // loadFolders preloads the immediate child folders of the given folder, and then
@@ -581,7 +602,7 @@ func (fs *FolderService) DeleteFolderPermanent(folderCode string, userID uint) e
 // any of the loads fail.
 func (fs *FolderService) loadFolders(folder *models.Folder) error {
 	// Preload immediate child folders
-	if err := fs.DB.Preload(clause.Associations).Find(&folder).Error; err != nil {
+	if err := fs.DB.Unscoped().Preload(clause.Associations).Find(&folder).Error; err != nil {
 		return err
 	}
 
@@ -597,10 +618,10 @@ func (fs *FolderService) loadFolders(folder *models.Folder) error {
 
 // processFolder recursively deletes all files and child folders of the given folder.
 // This is called by DeleteFolderPermanent.
-func (fs *FolderService) processFolder(folder *models.Folder) error {
+func (fs *FolderService) processFolder(deletedObjects *DeletedFilesAndFoldersList, folder *models.Folder) error {
 	bc := fs.BucketClient
 	for _, child := range(folder.ChildFolders) {
-		if err := fs.processFolder(child); err != nil {
+		if err := fs.processFolder(deletedObjects, child); err != nil {
 			return err
 		}
 	}
@@ -643,6 +664,10 @@ func (fs *FolderService) processFolder(folder *models.Folder) error {
 
 	// Delete files from DB
 	if len(toBeDeletedFiles) > 0 {
+		for deletedFile := range toBeDeletedFiles {
+			deletedObjects.DeletedFiles = append(deletedObjects.DeletedFiles, toBeDeletedFiles[deletedFile].FileCode)
+		}
+
 		if err := fs.DB.Unscoped().Delete(&toBeDeletedFiles).Error; err != nil {
 			return err
 		}
@@ -668,6 +693,9 @@ func (fs *FolderService) processFolder(folder *models.Folder) error {
 	}
 
 	log.Printf("Deleting folder %s (%s)\n", folder.Name, folder.Code)
+
+	deletedObjects.DeletedFolders = append(deletedObjects.DeletedFolders, folder.Code)
+
 	if err := fs.DB.Unscoped().Delete(&folder).Error; err != nil {
 		return err
 	}

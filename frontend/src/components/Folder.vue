@@ -2,12 +2,15 @@
 import { ref, inject } from "vue";
 import Folder from "../models/folder";
 import Filename from "./Filename.vue";
-import { patchFolder } from "../utils/foldersApi";
+import { patchFolder, deleteFolderTemp, deleteFolderPermanent } from "../utils/foldersApi";
 import { type FolderPatchRequest } from "../models/requestModel";
+import { useEventEmitterStore } from "../stores/eventEmitterStore";
 
 const isHover = ref<boolean>(false);
 const renameFolderPlaceholder = ref<string | undefined>();
 const folderDetailDialog = ref<boolean>(false);
+
+const evStore = useEventEmitterStore()
 
 const props = defineProps<{
   folder: Folder;
@@ -17,6 +20,8 @@ const props = defineProps<{
 const emit = defineEmits<{
   (e: "folderCode:change", newFolderCode: string): void;
   (e: "folderState:update", updatedFolder: Folder): void;
+  (e: "folderState:delete-perm", deletedObjects: {deletedFiles: string[], deletedFolders: string[]}): void;
+  (e: "folderState:delete-temp", deletedObjects: {deletedFiles: string[], deletedFolders: string[]}): void;
 }>();
 
 const showFileNavigatorDialog: ((file: Folder) => void) | undefined = inject('showFileNavigatorDialog')
@@ -43,6 +48,26 @@ async function toggleFavorite(): Promise<void> {
 
 function moveFolder(): void {
   showFileNavigatorDialog?.(props.folder)
+}
+
+async function deleteFolder(): Promise<void> {
+  // Temp delete
+  if (!props.folder.DeletedAt) {
+    await deleteFolderTemp(props.folder.Code);
+  } else {
+    // Permanent delete
+    const resp = await deleteFolderPermanent(props.folder.Code);
+    evStore.getEventEmitter.emit("FOLDER_DELETED_PERM", resp);
+  }
+
+  evStore.getEventEmitter.emit("FOLDER_DELETED_TEMP", props.folder);
+}
+
+async function restoreFolder(): Promise<void> {
+  const patchedFolder: Folder = await patchFolder(props.folder.Code, { is_restore: true });
+  if (patchedFolder) {
+    evStore.getEventEmitter.emit("FOLDER_UPDATED", patchedFolder)
+  }
 }
 </script>
 
@@ -126,12 +151,12 @@ function moveFolder(): void {
               </v-list-item>
 
               <!-- TODO: DELETE FOLDER -->
-              <v-list-item v-if="!folder.DeletedAt" @click="() => {}">
+              <v-list-item v-if="!folder.DeletedAt" @click="deleteFolder">
                 <v-icon>mdi-trash-can</v-icon> Delete
               </v-list-item>
 
               <!-- TODO: RESTORE DELETED FOLDER -->
-              <v-list-item v-else @click="() => {}">
+              <v-list-item v-else @click="restoreFolder">
                 <v-icon>mdi-delete-restore</v-icon> Restore
               </v-list-item>
 
@@ -146,6 +171,7 @@ function moveFolder(): void {
                         <v-btn class="" @click="isActive.value = false">Cancel</v-btn>
                         <v-btn class="text-red" variant="outlined" @click="() => {
                           isActive.value = false
+                          deleteFolder()
                         }">Delete</v-btn>
                       </template>
                     </v-card>

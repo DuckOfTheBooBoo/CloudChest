@@ -20,19 +20,23 @@ const fileList: Ref<CloudChestFile[]> = ref([] as CloudChestFile[]);
 const folderList: Ref<FolderModel[]> = ref([] as FolderModel[]);
 const folderHierarchies: Ref<FolderHierarchy[]> = ref([] as FolderHierarchy[]);
 
-const eventEmitter = useEventEmitterStore();
+const evStore = useEventEmitterStore();
 const route = useRoute();
 const router = useRouter();
 const folderCode = ref('root');
 const isFoldersLoading = ref<boolean>(false);
 const isFilesLoading = ref<boolean>(false);
 
-eventEmitter.eventEmitter.on(FILE_UPDATED, () => {
+evStore.eventEmitter.on(FILE_UPDATED, () => {
   fetchFiles(folderCode.value)
 })
 
-eventEmitter.eventEmitter.on(FOLDER_UPDATED, () => {
+evStore.eventEmitter.on(FOLDER_UPDATED, () => {
   fetchFolders(folderCode.value)
+})
+
+evStore.getEventEmitter.on("FOLDER_DELETED_TEMP", (deletedFolder: FolderModel) => {
+  folderList.value = folderList.value.filter((folder: FolderModel) => folder.Code !== deletedFolder.Code)
 })
 
 watch(() => route.params.code, async () => {

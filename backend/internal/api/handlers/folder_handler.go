@@ -37,6 +37,8 @@ func (fh *FolderHandler) FolderList(c *gin.Context) {
 	// Dirty workaround but meh
 	if folderCode == "favorite" {
 		folderResp, err = fh.FolderService.ListFavoriteFolders(userClaim.ID) 
+	} else if folderCode == "trashcan" {
+		folderResp, err = fh.FolderService.ListTrashFolders(userClaim.ID)
 	} else {
 		folderResp, err = fh.FolderService.ListFolders(userClaim.ID, folderCode)
 	}
@@ -216,7 +218,8 @@ func (fh *FolderHandler) FolderDelete(c *gin.Context) {
 		return
 	}
 
-	if err := fh.FolderService.DeleteFolderPermanent(folderCode, userClaim.ID); err != nil {
+	deletedObjects, err := fh.FolderService.DeleteFolderPermanent(folderCode, userClaim.ID);
+	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			c.JSON(http.StatusNotFound, gin.H{
 				"error": err.Error(),
@@ -229,5 +232,5 @@ func (fh *FolderHandler) FolderDelete(c *gin.Context) {
 		return
 	}
 
-	c.Status(http.StatusOK)
+	c.JSON(http.StatusOK, deletedObjects)
 }
