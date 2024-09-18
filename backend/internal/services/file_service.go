@@ -14,7 +14,7 @@ import (
 )
 
 type FileService struct {
-	DB *gorm.DB
+	DB           *gorm.DB
 	BucketClient *models.BucketClient
 }
 
@@ -51,7 +51,7 @@ func (fs *FileService) ListFavoriteFiles(userID uint) ([]models.File, error) {
 		return nil, &apperr.ServerError{
 			BaseError: &apperr.BaseError{
 				Message: "Internal server error ocurred",
-				Err: err,
+				Err:     err,
 			},
 		}
 	}
@@ -69,7 +69,7 @@ func (fs *FileService) ListTrashCanFiles(userID uint) ([]models.File, error) {
 		return nil, &apperr.ServerError{
 			BaseError: &apperr.BaseError{
 				Message: "Failed to fetch trashed files",
-				Err: err,
+				Err:     err,
 			},
 		}
 	}
@@ -92,7 +92,7 @@ func (fs *FileService) DeleteFileTemp(userID, fileID uint) error {
 		return &apperr.ServerError{
 			BaseError: &apperr.BaseError{
 				Message: "Internal server error ocurred",
-				Err: err,
+				Err:     err,
 			},
 		}
 	}
@@ -110,7 +110,7 @@ func (fs *FileService) DeleteFilePermanent(userID, fileID uint) error {
 			return &apperr.NotFoundError{
 				BaseError: &apperr.BaseError{
 					Message: "file not found",
-					Err: err,
+					Err:     err,
 				},
 			}
 		}
@@ -118,7 +118,7 @@ func (fs *FileService) DeleteFilePermanent(userID, fileID uint) error {
 		return &apperr.ServerError{
 			BaseError: &apperr.BaseError{
 				Message: "Internal server error ocurred",
-				Err: err,
+				Err:     err,
 			},
 		}
 	}
@@ -131,7 +131,7 @@ func (fs *FileService) DeleteFilePermanent(userID, fileID uint) error {
 					if !errors.Is(err, &apperr.NotFoundError{}) {
 						return err
 					}
-				}	
+				}
 			}
 
 			if strings.HasPrefix(file.FileType, "video/") && file.IsPreviewable {
@@ -139,21 +139,21 @@ func (fs *FileService) DeleteFilePermanent(userID, fileID uint) error {
 				hlsService.DeleteHLSFiles(&file)
 			}
 		}
-	
+
 		if err := tx.Unscoped().Delete(file).Error; err != nil {
 			if errors.Is(err, gorm.ErrRecordNotFound) {
 				return &apperr.NotFoundError{
 					BaseError: &apperr.BaseError{
 						Message: "file not found",
-						Err: err,
+						Err:     err,
 					},
 				}
 			}
-	
+
 			return &apperr.ServerError{
 				BaseError: &apperr.BaseError{
 					Message: "Internal server error ocurred",
-					Err: err,
+					Err:     err,
 				},
 			}
 		}
@@ -162,11 +162,11 @@ func (fs *FileService) DeleteFilePermanent(userID, fileID uint) error {
 			return &apperr.ServerError{
 				BaseError: &apperr.BaseError{
 					Message: "Internal server error ocurred",
-					Err: err,
+					Err:     err,
 				},
 			}
 		}
-	
+
 		return nil
 	})
 
@@ -186,7 +186,7 @@ func (fs *FileService) EmptyTrashCan(userID uint) error {
 			return &apperr.ServerError{
 				BaseError: &apperr.BaseError{
 					Message: "Internal server error ocurred",
-					Err: err,
+					Err:     err,
 				},
 			}
 		}
@@ -203,18 +203,18 @@ func (fs *FileService) EmptyTrashCan(userID uint) error {
 func (fs *FileService) UpdateFile(userID, fileID uint, updateBody models.FileUpdateBody) (*models.File, error) {
 	// Find file
 	var file models.File
-	query := fs.DB.Where("id = ? AND user_id = ?", fileID, userID)
+	query := fs.DB.Where("id = ? AND user_id = ?", fileID, userID).Preload("Folder")
 
 	if updateBody.Restore {
 		query = query.Unscoped()
 	}
-	
+
 	if err := query.First(&file).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, &apperr.NotFoundError{
 				BaseError: &apperr.BaseError{
 					Message: "File not found",
-					Err: err,
+					Err:     err,
 				},
 			}
 		}
@@ -222,7 +222,7 @@ func (fs *FileService) UpdateFile(userID, fileID uint, updateBody models.FileUpd
 		return nil, &apperr.ServerError{
 			BaseError: &apperr.BaseError{
 				Message: "Internal server error ocurred",
-				Err: err,
+				Err:     err,
 			},
 		}
 	}
@@ -235,8 +235,20 @@ func (fs *FileService) UpdateFile(userID, fileID uint, updateBody models.FileUpd
 			return nil, &apperr.ServerError{
 				BaseError: &apperr.BaseError{
 					Message: "Internal server error ocurred",
-					Err: err,
+					Err:     err,
 				},
+			}
+		}
+
+		if file.Folder.DeletedAt.Valid {
+			folderService := NewFolderService(fs.DB)
+			if err := folderService.RecursivelyRestoreFoldersUpwards(file.Folder); err != nil {
+				return nil, &apperr.ServerError{
+					BaseError: &apperr.BaseError{
+						Message: "failed to restore file's parent folder",
+						Err:     err,
+					},
+				}
 			}
 		}
 	}
@@ -245,7 +257,7 @@ func (fs *FileService) UpdateFile(userID, fileID uint, updateBody models.FileUpd
 		return nil, &apperr.ServerError{
 			BaseError: &apperr.BaseError{
 				Message: "Internal server error ocurred",
-				Err: err,
+				Err:     err,
 			},
 		}
 	}
@@ -254,26 +266,26 @@ func (fs *FileService) UpdateFile(userID, fileID uint, updateBody models.FileUpd
 }
 
 // PatchFile updates a file by given file id and user id.
-// 
+//
 // This function also supports restoring a file from trash can by setting Restore to true.
-// 
+//
 // If the file is not found, it returns a NotFoundError.
 // If other errors occur, it returns a ServerError.
 func (fs *FileService) PatchFile(userID, fileID uint, patchBody models.FilePatchBody) (*models.File, error) {
 	// Find file
 	var file models.File
-	query := fs.DB.Where("id = ? AND user_id = ?", fileID, userID)
+	query := fs.DB.Where("id = ? AND user_id = ?", fileID, userID).Preload("Folder")
 
 	if patchBody.Restore {
 		query = query.Unscoped()
 	}
-	
+
 	if err := query.First(&file).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, &apperr.NotFoundError{
 				BaseError: &apperr.BaseError{
 					Message: "File not found",
-					Err: err,
+					Err:     err,
 				},
 			}
 		}
@@ -281,7 +293,7 @@ func (fs *FileService) PatchFile(userID, fileID uint, patchBody models.FilePatch
 		return nil, &apperr.ServerError{
 			BaseError: &apperr.BaseError{
 				Message: "Internal server error ocurred",
-				Err: err,
+				Err:     err,
 			},
 		}
 	}
@@ -299,8 +311,20 @@ func (fs *FileService) PatchFile(userID, fileID uint, patchBody models.FilePatch
 			return nil, &apperr.ServerError{
 				BaseError: &apperr.BaseError{
 					Message: "Internal server error ocurred",
-					Err: err,
+					Err:     err,
 				},
+			}
+		}
+
+		if file.Folder.DeletedAt.Valid {
+			folderService := NewFolderService(fs.DB)
+			if err := folderService.RecursivelyRestoreFoldersUpwards(file.Folder); err != nil {
+				return nil, &apperr.ServerError{
+					BaseError: &apperr.BaseError{
+						Message: "failed to restore file's parent folder",
+						Err:     err,
+					},
+				}
 			}
 		}
 	}
@@ -309,7 +333,7 @@ func (fs *FileService) PatchFile(userID, fileID uint, patchBody models.FilePatch
 		return nil, &apperr.ServerError{
 			BaseError: &apperr.BaseError{
 				Message: "Internal server error ocurred",
-				Err: err,
+				Err:     err,
 			},
 		}
 	}
@@ -324,7 +348,7 @@ func (fs *FileService) GetPresignedURL(userID uint, fileCode string) (*url.URL, 
 			return nil, &apperr.NotFoundError{
 				BaseError: &apperr.BaseError{
 					Message: "File not found",
-					Err: err,
+					Err:     err,
 				},
 			}
 		}
@@ -332,7 +356,7 @@ func (fs *FileService) GetPresignedURL(userID uint, fileCode string) (*url.URL, 
 		return nil, &apperr.ServerError{
 			BaseError: &apperr.BaseError{
 				Message: "Failed to fetch file's information",
-				Err: err,
+				Err:     err,
 			},
 		}
 	}
@@ -352,7 +376,7 @@ func (fs *FileService) GetPresignedURL(userID uint, fileCode string) (*url.URL, 
 		return nil, &apperr.ServerError{
 			BaseError: &apperr.BaseError{
 				Message: "Failed to get presigned URL",
-				Err: err,
+				Err:     err,
 			},
 		}
 	}

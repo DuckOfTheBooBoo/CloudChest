@@ -14,6 +14,7 @@ type Folder struct {
 	IsFavorite   bool      `gorm:"default:0"`
 	ChildFolders []*Folder `gorm:"foreignKey:ParentID"`
 	Files        []*File   `gorm:"foreignKey:FolderID"`
+	ParentFolder *Folder   `gorm:"foreignKey:ParentID"` // Root folder does not have a parent, so its nil-able
 }
 
 type FolderHierarchy struct {

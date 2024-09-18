@@ -160,7 +160,7 @@ func (fs *FolderService) ListTrashFolders(userID uint) (*models.FolderResponse, 
 func (fs *FolderService) PatchFolder(userID uint, folderCode string, folderUpdateBody models.FolderUpdateBody) (*models.Folder, error) {
 	var folder models.Folder
 
-	query := fs.DB.Where("code = ? AND user_id = ?", folderCode, userID)
+	query := fs.DB.Where("code = ? AND user_id = ?", folderCode, userID).Preload("ParentFolder")
 
 	if folderUpdateBody.Restore {
 		query = query.Unscoped()
@@ -213,6 +213,17 @@ func (fs *FolderService) PatchFolder(userID uint, folderCode string, folderUpdat
 					Message: "Failed to restore folder " + folder.Name,
 					Err: err,
 				},
+			}
+		}
+
+		if folder.ParentFolder.DeletedAt.Valid {
+			if err := fs.RecursivelyRestoreFoldersUpwards(folder.ParentFolder); err != nil {
+				return nil, &apperr.ServerError{
+					BaseError: &apperr.BaseError{
+						Message: "Failed to restore folder " + folder.Name,
+						Err: err,
+					},
+				}
 			}
 		}
 	}
@@ -596,6 +607,30 @@ func (fs *FolderService) DeleteFolderPermanent(folderCode string, userID uint) (
 
 	return &deletedObjects, nil
 }
+
+// Only used when we're trying to restore a deleted (temp) folder but its parent or grandparent or great-grandparent or whatever that is, is deleted (temp)
+func (fs *FolderService) RecursivelyRestoreFoldersUpwards(parentFolder *models.Folder) error {
+	// Restore the parent parentFolder if it was soft deleted
+	if parentFolder.DeletedAt.Valid {
+		log.Printf("Restoring folder %s (%s)\n", parentFolder.Name, parentFolder.Code)
+		if err := fs.DB.Unscoped().Model(parentFolder).Update("deleted_at", nil).Error; err != nil {
+			return err
+		}
+	}
+
+	// Fetch the parent parentFolder
+	if err := fs.DB.Unscoped().Model(&models.Folder{}).Where("id = ?", parentFolder.ParentID).First(&parentFolder.ParentFolder).Error; err != nil {
+		return err
+	}
+	
+	if parentFolder.ParentFolder.Name == "/" {
+		return nil
+	}
+	
+	// Recursively restore the parent's parent
+	return fs.RecursivelyRestoreFoldersUpwards(parentFolder.ParentFolder)
+}
+
 
 // loadFolders preloads the immediate child folders of the given folder, and then
 // recursively loads all the children of each child folder. It returns an error if
