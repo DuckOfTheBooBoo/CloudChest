@@ -9,6 +9,8 @@ import 'hls-video-element'
 // Pinia
 import { createPinia } from 'pinia'
 
+// TODO: Make any request that create new resource to make use of the response returned, for example if user created a new folder, it will be returned in the response and append it into the folder's array, instead of requesting for the list of folders
+
 // Vuetify
 import '@mdi/font/css/materialdesignicons.css'
 import 'vuetify/styles'
