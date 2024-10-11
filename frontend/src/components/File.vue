@@ -6,6 +6,7 @@ import Filename from "./Filename.vue";
 import { type CloudChestFile } from "../models/file";
 import { trashFile, updateFile, patchFile } from "../utils/filesApi";
 import { type FilePatchRequest } from "../models/requestModel";
+import { useEventEmitterStore } from "../stores/eventEmitterStore";
 
 const props = defineProps<{
   file: CloudChestFile
@@ -75,10 +76,10 @@ async function toggleFavorite(): Promise<void> {
 }
 
 async function restoreFile(): Promise<void> {
-  const isSuccessful: boolean = await updateFile(file, true);
-  if (isSuccessful) {
-    file.DeletedAt = null;
+  const request: FilePatchRequest = {
+    is_restore: true
   }
+  await patchFile(file, request);
 }
 
 async function pruneFile(): Promise<void> {
@@ -145,7 +146,7 @@ const thumbnailURL = computed(() => {
             <v-list>
 
               <!-- RENAME FILE -->
-              <v-list-item v-if="!file.DeletedAt" @click="() => {renameFilePlaceholder = file.FileName.slice(0, -4)}">
+              <v-list-item v-if="!file.DeletedAt" @click="() => {renameFilePlaceholder = file.FileName}">
                 <v-icon>mdi-pencil</v-icon> Rename
 
                 <v-dialog activator="parent" max-width="500px">
@@ -162,6 +163,7 @@ const thumbnailURL = computed(() => {
                           single-line
                           :rules="[rules.required]"
                         ></v-text-field>
+                        <div class="tw-text-red-500">Caution: Avoid altering the file extension to prevent unexpected behavior</div>
                       </v-card-item>
 
                       <v-card-actions>
