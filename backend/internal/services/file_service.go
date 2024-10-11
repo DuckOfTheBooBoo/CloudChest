@@ -298,7 +298,7 @@ func (fs *FileService) PatchFile(userID, fileID uint, patchBody models.FilePatch
 		}
 	}
 
-	if file.FileName != patchBody.FileName {
+	if file.FileName != patchBody.FileName && patchBody.FileName != "" {
 		file.FileName = patchBody.FileName
 	}
 

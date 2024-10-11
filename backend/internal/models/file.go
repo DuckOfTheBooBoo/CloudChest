@@ -10,7 +10,7 @@ type FileUpdateBody struct {
 
 type FilePatchBody struct {
 	FileName   string `json:"file_name"`
-	FolderCode string `validate:"ascii,len=21" json:"folder_code"`
+	FolderCode string `validate:"ascii" json:"folder_code"`
 	IsFavorite bool   `validate:"boolean" json:"is_favorite"`
 	Restore    bool   `validate:"boolean" json:"is_restore"`
 }
