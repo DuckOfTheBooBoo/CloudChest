@@ -49,34 +49,28 @@ export async function getDeletedFolders(): Promise<getFoldersResponse> {
     return {} as getFoldersResponse;
 }
 
-export async function createNewFolder(parentFolderCode: string, folderName: string): Promise<Folder> {
+export async function createNewFolder(parentFolderCode: string, folderName: string): Promise<void> {
+    const evStore = useEventEmitterStore();
     try {
         const response = await axios.post(`/api/folders/${parentFolderCode}/folders`, {
             "folder_name": folderName,
         });
         const folder: Folder = response.data as Folder;
-        // const eventEmitter = useEventEmitterStore();
-        // eventEmitter.eventEmitter.emit(FOLDER_UPDATED);
-        return folder;
+        evStore.getEventEmitter.emit("FOLDER_ADDED", folder)
     } catch (error) {
         console.error(error);
     }
-
-    return {} as Folder;
 }
 
-export async function patchFolder(folderCode: string, patchRequest: FolderPatchRequest): Promise<Folder> {
+export async function patchFolder(folderCode: string, patchRequest: FolderPatchRequest): Promise<void> {
+    const evStore = useEventEmitterStore();
     try {
         const response = await axios.patch(`/api/folders/${folderCode}`, patchRequest);
         const folder: Folder = response.data as Folder;
-        // const eventEmitter = useEventEmitterStore();
-        // eventEmitter.eventEmitter.emit(FOLDER_UPDATED);
-        return folder;
+        evStore.getEventEmitter.emit("FOLDER_UPDATED", folder)
     } catch (error) {
         console.error(error);
     }
-
-    return {} as Folder;
 }
 
 export async function deleteFolderTemp(folderCode: string): Promise<void> {

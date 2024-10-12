@@ -96,9 +96,7 @@ func (fh *FolderHandler) FolderCreate(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusCreated, gin.H{
-		"folder": newFolder,
-	})
+	c.JSON(http.StatusCreated, newFolder)
 }
 
 func (fh *FolderHandler) FolderContentsCreate(c *gin.Context) {

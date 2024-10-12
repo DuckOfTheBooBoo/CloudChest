@@ -44,11 +44,15 @@ export async function getFavoriteFiles(): Promise<{files: CloudChestFile[]}> {
 }
 
 export async function trashFile(file: CloudChestFile, isTrashFile: boolean): Promise<void> {
+  const evStore = useEventEmitterStore();
   const url: string = `/api/files/${file.ID}?trash=${isTrashFile}`;
   try {
     await axios.delete(url);
-    const eventEmitter = useEventEmitterStore();
-    eventEmitter.eventEmitter.emit(FILE_UPDATED);
+    if (isTrashFile) {
+      evStore.getEventEmitter.emit("FILE_DELETED_TEMP", file);
+    } else {
+      evStore.getEventEmitter.emit("FILE_DELETED_PERM", file);
+    }
   } catch (error) {
     console.error(error);
   }
@@ -58,8 +62,6 @@ export async function emptyTrashCan(): Promise<void> {
   const url: string = `/api/files`;
   try {
     await axios.delete(url);
-    const eventEmitter = useEventEmitterStore();
-    eventEmitter.eventEmitter.emit(FILE_UPDATED);
   } catch (error) {
     console.error(error);
   }
@@ -77,8 +79,6 @@ export async function updateFile(file: CloudChestFile, isRestoreFile: boolean): 
 
   try {
     await axios.put(`/api/files/${file.ID}`, body);
-    const eventEmitter = useEventEmitterStore();
-    eventEmitter.eventEmitter.emit(FILE_UPDATED);
     return true;
   } catch (error) {
     console.error(error);
@@ -87,17 +87,14 @@ export async function updateFile(file: CloudChestFile, isRestoreFile: boolean): 
   return false;
 }
 
-export async function patchFile(file: CloudChestFile, patchRequest: FilePatchRequest): Promise<boolean> {
+export async function patchFile(file: CloudChestFile, patchRequest: FilePatchRequest): Promise<void> {
+  const evStore = useEventEmitterStore()
   try {
-    await axios.patch(`/api/files/${file.ID}`, patchRequest);
-    const eventEmitter = useEventEmitterStore();
-    eventEmitter.eventEmitter.emit(FILE_UPDATED);
-    return true;
+    const response = await axios.patch(`/api/files/${file.ID}`, patchRequest);
+    evStore.getEventEmitter.emit("FILE_UPDATED", response.data as CloudChestFile);
   } catch (error) {
     console.error(error);
   }
-
-  return false;
 }
 
 export async function downloadFile(fileCode: string): Promise<PresignedURL> {

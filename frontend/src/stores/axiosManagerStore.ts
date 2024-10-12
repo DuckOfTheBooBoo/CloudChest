@@ -4,6 +4,7 @@ import type RequestData from "../models/requestData";
 import { reactive } from "vue";
 import { useEventEmitterStore } from "./eventEmitterStore"
 import { FILE_UPDATED } from "../constants";
+import { CloudChestFile, FileResponse } from "../models/file";
 
 export const useAxiosManagerStore = defineStore("axiosManager", {
   state: () => {
@@ -44,7 +45,7 @@ export const useAxiosManagerStore = defineStore("axiosManager", {
         .then((resp) => {
           console.log(resp)
           if (resp.status === 201) {
-            this.eventEmitter.eventEmitter.emit(FILE_UPDATED)
+            this.eventEmitter.getEventEmitter.emit("FILE_ADDED", new CloudChestFile(resp.data as FileResponse))
           }
         })
         .catch(err => console.error(err))

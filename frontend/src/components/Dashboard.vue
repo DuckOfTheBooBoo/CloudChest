@@ -79,9 +79,7 @@ async function uploadFile(_: Event): Promise<void> {
 
 async function newFolder(_: Event): Promise<void> {
   const folderCode: string = route.params.code ? route.params.code as string : 'root';
-
   await createNewFolder(folderCode, newFolderName.value as string);
-  eventEmitter.eventEmitter.emit(FILE_UPDATED);
   newFolderDialog.value = false; // end
   newFolderName.value = null;
 }

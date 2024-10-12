@@ -32,6 +32,16 @@ evStore.getEventEmitter.on("FOLDER_UPDATED", (updatedfolder: FolderModel) => {
   deletedFoldersList.value = deletedFoldersList.value.filter((folder: FolderModel) => folder.Code !== updatedfolder.Code);
 })
 
+// FILE_UPDATED only occurs on Trash.vue if file is restored, thus remove it from the list
+evStore.getEventEmitter.on("FILE_UPDATED", (updatedFile: CloudChestFile) => {
+  console.log("FILE UPDATED")
+  deletedFilesList.value = deletedFilesList.value.filter((file: CloudChestFile) => file.FileCode !== updatedFile.FileCode);
+})
+
+evStore.getEventEmitter.on("FILE_DELETED_PERM", (deletedFile: CloudChestFile) => {
+  deletedFilesList.value = deletedFilesList.value.filter((file: CloudChestFile) => file.FileCode !== deletedFile.FileCode);
+})
+
 const isLoading = ref<boolean>(false);
 
 onBeforeMount(fetchTrashCan);

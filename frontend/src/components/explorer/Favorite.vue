@@ -7,8 +7,7 @@ import { getFavoriteFolders } from "../../utils/foldersApi";
 import File from "../File.vue";
 import Folder from "../Folder.vue";
 import FolderModel from "../../models/folder";
-// import { useEventEmitterStore } from "../../stores/eventEmitterStore";
-// import { FILE_UPDATED, FOLDER_UPDATED } from "../../constants";
+import { useEventEmitterStore } from "../../stores/eventEmitterStore";
 
 const emit = defineEmits<{
   (e: "file:select", file: CloudChestFile): void,
@@ -18,20 +17,34 @@ const emit = defineEmits<{
 const favoriteFilesList: Ref<CloudChestFile[]> = ref([] as CloudChestFile[]);
 const favoriteFoldersList: Ref<FolderModel[]> = ref([] as FolderModel[]);
 
-// const eventEmitter = useEventEmitterStore();
+const evStore = useEventEmitterStore();
 const route = useRoute();
 const router = useRouter();
 const folderCode = ref('root');
 const isFoldersLoading = ref<boolean>(false);
 const isFilesLoading = ref<boolean>(false);
 
-// eventEmitter.eventEmitter.on(FILE_UPDATED, () => {
-//   fetchFavoriteFiles()
-// })
+evStore.getEventEmitter.on("FOLDER_UPDATED", (updatedFolder: FolderModel) => {
+  const index: number = favoriteFoldersList.value.findIndex((folder: FolderModel) => folder.Code === updatedFolder.Code);
+  if (index > -1) {
+    favoriteFoldersList.value[index] = updatedFolder;
+  }
 
-// eventEmitter.eventEmitter.on(FOLDER_UPDATED, () => {
-//   fetchFavoriteFolders()
-// })
+  if (!updatedFolder.IsFavorite) {
+    favoriteFoldersList.value = favoriteFoldersList.value.filter((folder: FolderModel) => folder.Code !== updatedFolder.Code);
+  }
+})
+
+evStore.getEventEmitter.on("FILE_UPDATED", (updatedFile: CloudChestFile) => {
+  const index: number = favoriteFilesList.value.findIndex((file: CloudChestFile) => file.FileCode === updatedFile.FileCode);
+  if (index > -1) {
+    favoriteFilesList.value[index] = updatedFile;
+  }
+  if (!updatedFile.IsFavorite) {
+    favoriteFilesList.value = favoriteFilesList.value.filter((file: CloudChestFile) => file.FileCode !== updatedFile.FileCode);
+  }
+})
+
 
 watch(() => route.params.code, async () => {
   folderCode.value = route.params.code ? route.params.code as string : 'root';

@@ -27,16 +27,27 @@ const folderCode = ref('root');
 const isFoldersLoading = ref<boolean>(false);
 const isFilesLoading = ref<boolean>(false);
 
-evStore.eventEmitter.on(FILE_UPDATED, () => {
-  fetchFiles(folderCode.value)
+evStore.getEventEmitter.on("FOLDER_ADDED", (folder: FolderModel) => {
+  folderList.value.push(folder)
 })
 
-evStore.eventEmitter.on(FOLDER_UPDATED, () => {
-  fetchFolders(folderCode.value)
+evStore.getEventEmitter.on("FOLDER_UPDATED", (updatedFolder: FolderModel) => {
+  const index: number = folderList.value.findIndex((folder: FolderModel) => folder.Code === updatedFolder.Code);
+  if(index !== -1) {
+    folderList.value[index] = updatedFolder
+  }
 })
 
 evStore.getEventEmitter.on("FOLDER_DELETED_TEMP", (deletedFolder: FolderModel) => {
   folderList.value = folderList.value.filter((folder: FolderModel) => folder.Code !== deletedFolder.Code)
+})
+
+evStore.getEventEmitter.on("FILE_DELETED_TEMP", (deletedFile: CloudChestFile) => {
+  fileList.value = fileList.value.filter((file: CloudChestFile) => file.FileCode !== deletedFile.FileCode)
+})
+
+evStore.getEventEmitter.on("FILE_ADDED", (file: CloudChestFile) => {
+  fileList.value.push(file)
 })
 
 watch(() => route.params.code, async () => {
