@@ -35,6 +35,10 @@ evStore.getEventEmitter.on("FOLDER_UPDATED", (updatedFolder: FolderModel) => {
   const index: number = folderList.value.findIndex((folder: FolderModel) => folder.Code === updatedFolder.Code);
   if(index !== -1) {
     folderList.value[index] = updatedFolder
+
+    if(updatedFolder.Code !== folderCode.value) {
+      folderList.value.splice(index, 1);
+    }
   }
 })
 

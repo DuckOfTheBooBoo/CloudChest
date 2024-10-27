@@ -190,7 +190,17 @@ func (fh *FolderHandler) FolderPatch(c *gin.Context) {
 		}
 	}
 
-	c.JSON(http.StatusOK, folder)
+	type Response struct {
+		Folder *models.Folder
+		Code string
+	}
+
+	resp := Response{
+		Folder: folder,
+		Code: folder.Code,
+	}
+
+	c.JSON(http.StatusOK, resp)
 }
 
 func (fh *FolderHandler) FolderDelete(c *gin.Context) {

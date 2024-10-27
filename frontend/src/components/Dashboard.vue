@@ -25,6 +25,7 @@ import type Folder from "../models/folder";
 import AxiosManager from "./AxiosManager.vue";
 import FolderListNavigator from "./FolderListNavigator.vue";
 import Previewer from "./Previewer.vue";
+import { FilePatchRequest, FolderPatchRequest } from "../models/requestModel";
 
 const selectedNav = ref(0);
 const router = useRouter();
@@ -117,20 +118,29 @@ async function handleFileNavigatorSelect(folder: Folder | null): Promise<void> {
 
     // variable contains CloudChestFile
     if (moveObjectPlaceholder.value instanceof CloudChestFile) {
-      const moveRequest: { folder_code: string } = {
+      const moveRequest: FilePatchRequest = {
         folder_code: folder.Code,
       }
   
       await patchFile(moveObjectPlaceholder.value, moveRequest);
     } else if (isFolder(moveObjectPlaceholder.value)) {
       // variable contains object that implements Folder interface
-      const moveRequest: { parent_folder_code: string } = {
+      const moveRequest: FolderPatchRequest = {
         parent_folder_code: folder.Code,
       }
   
       await patchFolder(blacklistedFolder.value!.Code, moveRequest);
     }
   }
+
+  moveObjectPlaceholder.value = null;
+  blacklistedFolder.value = undefined;
+}
+
+function handleFileNavigatorCancel(): void {
+  fileListNavDialog.value = false;
+  moveObjectPlaceholder.value = null;
+  blacklistedFolder.value = undefined;
 }
 
 const showFileNavigatorDialog = (file: CloudChestFile | Folder): void => {
@@ -147,6 +157,8 @@ provide('showFileNavigatorDialog', showFileNavigatorDialog);
 
 <template>
   <!-- File Navigator Dialog -->
+  <!-- TODO: Add root to folder list -->
+  <!-- TODO: Fix folder list not showing bug when file is selected -->
   <v-dialog
     v-model="fileListNavDialog"
     scrollable 
@@ -155,7 +167,7 @@ provide('showFileNavigatorDialog', showFileNavigatorDialog);
     max-height="90%"
     transition="dialog-transition"
   >
-    <FolderListNavigator :blacklistedFolder="blacklistedFolder" @nav:cancel="fileListNavDialog = false" @nav:move="handleFileNavigatorSelect" />
+    <FolderListNavigator :blacklistedFolder="blacklistedFolder" @nav:cancel="handleFileNavigatorCancel" @nav:move="handleFileNavigatorSelect" />
   </v-dialog>
 
   <v-layout class="rounded rounded-md tw-relative">

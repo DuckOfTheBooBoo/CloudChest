@@ -66,7 +66,9 @@ export async function patchFolder(folderCode: string, patchRequest: FolderPatchR
     const evStore = useEventEmitterStore();
     try {
         const response = await axios.patch(`/api/folders/${folderCode}`, patchRequest);
-        const folder: Folder = response.data as Folder;
+        const folder: Folder = response.data["Folder"] as Folder;
+        const code: string = response.data["Code"] as string;
+        folder.Code = code;
         evStore.getEventEmitter.emit("FOLDER_UPDATED", folder)
     } catch (error) {
         console.error(error);
