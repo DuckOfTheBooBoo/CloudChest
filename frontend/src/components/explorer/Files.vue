@@ -50,6 +50,13 @@ evStore.getEventEmitter.on("FILE_ADDED", (file: CloudChestFile) => {
   fileList.value.push(file)
 })
 
+evStore.getEventEmitter.on("FILE_UPDATED", (updatedFile: CloudChestFile) => {
+  const index: number = fileList.value.findIndex((file: CloudChestFile) => file.FileCode === updatedFile.FileCode);
+  if(index !== -1) {
+    fileList.value[index] = updatedFile
+  }
+})
+
 watch(() => route.params.code, async () => {
   folderCode.value = route.params.code ? route.params.code as string : 'root';
   fetchFiles(folderCode.value);

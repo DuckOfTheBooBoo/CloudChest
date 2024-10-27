@@ -6,7 +6,7 @@ import Filename from "./Filename.vue";
 import { type CloudChestFile } from "../models/file";
 import { trashFile, updateFile, patchFile } from "../utils/filesApi";
 import { type FilePatchRequest } from "../models/requestModel";
-import { useEventEmitterStore } from "../stores/eventEmitterStore";
+import {FileTypeCategorizer, type FileCategory} from "../utils/fileTypeCategorizer";
 
 const props = defineProps<{
   file: CloudChestFile
@@ -23,47 +23,16 @@ const renameFilePlaceholder = ref<string | undefined>(undefined);
 
 const showFileNavigatorDialog: ((file: CloudChestFile) => void) | undefined = inject('showFileNavigatorDialog')
 
-interface MimeTypeToCategoryMap {
-  [mimeType: string]: string;
-}
-
-const mimeTypeToCategoryMap: MimeTypeToCategoryMap = {
-  // Documents
-  'application/msword': 'document',
-  'application/vnd.openxmlformats-officedocument.wordprocessingml.document': 'document',
-  'application/pdf': 'document',
-  'text/plain': 'document',
-  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': 'document',
-  'application/vnd.openxmlformats-officedocument.presentationml.presentation':'document',
-
-  // Audio
-  'audio/mpeg': 'audio',
-  'audio/wav': 'audio',
-  'audio/mp4': 'audio',
-  'audio/ogg': 'audio',
-
-  // Archives
-  'application/zip': 'archive',
-  'application/x-zip-compressed': 'archive',
-  'application/x-rar-compressed': 'archive',
-  'application/x-7z-compressed': 'archive',
-
-  // Fonts
-  'font/ttf': 'font',
-  'font/woff': 'font',
-  'font/woff2': 'font',
-
-  // Other
-  'application/octet-stream': 'other', // Generic binary data
-};
-
 const categoryToMDIIcon: {[categoryName: string]: string} = {
   'document': 'mdi-file-document-outline',
+  'plaintext': 'mdi-file-document-outline',
   'audio': 'mdi-music-note',
   'font': 'mdi-format-font',
   'archive': 'mdi-bookshelf',
   'other': 'mdi-file-outline',
 }
+
+const fileCategory = computed(() => FileTypeCategorizer.categorizeFile(file.FileType, file.FileName));
 
 async function toggleFavorite(): Promise<void> {
   const fileCopy: CloudChestFile = file;
@@ -91,8 +60,7 @@ async function pruneFile(): Promise<void> {
 }
 
 async function renameFile(): Promise<void> {
-  const originalExtension: string | undefined = props.file.FileName.split('.').pop();
-  const newFilename: string = renameFilePlaceholder.value + ('.' + originalExtension);
+  const newFilename: string = renameFilePlaceholder.value ? renameFilePlaceholder.value : file.FileName;
   const requestBody: FilePatchRequest = {
     file_name: newFilename,
   }
@@ -132,7 +100,7 @@ const thumbnailURL = computed(() => {
         </template>
 
         <div class="tw-h-[100px] tw-flex tw-items-center tw-justify-center tw-text-4xl" v-if="!file.FileType.includes('image/') && !file.FileType.includes('video/')">
-          <v-icon>{{ categoryToMDIIcon[mimeTypeToCategoryMap[file.FileType]] }}</v-icon>
+          <v-icon>{{ categoryToMDIIcon[fileCategory] }}</v-icon>
         </div>
         <v-img v-else height="100" :src="thumbnailURL" cover alt="No thumbnail"></v-img>
 
