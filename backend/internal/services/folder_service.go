@@ -204,6 +204,7 @@ func (fs *FolderService) PatchFolder(userID uint, folderCode string, folderUpdat
 		}
 
 		folder.ParentID = &parentFolder.ID
+		folder.ParentFolder = &parentFolder
 	}
 
 	if folderUpdateBody.Restore {

@@ -308,6 +308,21 @@ func (fs *FileService) PatchFile(userID, fileID uint, patchBody models.FilePatch
 		file.IsFavorite = patchBody.IsFavorite
 	}
 
+	if patchBody.FolderCode != "" {
+		var parentFolder models.Folder
+		if err := fs.DB.Where("code = ? AND user_id = ?", patchBody.FolderCode, userID).First(&parentFolder).Error; err != nil {
+			return nil, &apperr.NotFoundError{
+				BaseError: &apperr.BaseError{
+					Message: "Folder not found",
+					Err: err,
+				},
+			}
+		}
+
+		file.FolderID = parentFolder.ID
+		file.Folder = &parentFolder
+	}
+
 	if patchBody.Restore {
 		if err := fs.DB.Unscoped().Model(&file).Update("deleted_at", nil).Error; err != nil {
 			return nil, &apperr.ServerError{
