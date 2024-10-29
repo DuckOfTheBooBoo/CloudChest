@@ -35,13 +35,11 @@ const categoryToMDIIcon: {[categoryName: string]: string} = {
 const fileCategory = computed(() => FileTypeCategorizer.categorizeFile(file.FileType, file.FileName));
 
 async function toggleFavorite(): Promise<void> {
-  const fileCopy: CloudChestFile = file;
-  fileCopy.IsFavorite = !file.IsFavorite;
-  const isSuccessful: boolean = await updateFile(fileCopy, false);
-  if (isSuccessful) {
-    file.IsFavorite = !file.IsFavorite
-    emit('file-state:update', file)
+  const request: FilePatchRequest = {
+    is_favorite: !file.IsFavorite
   }
+  console.log(request)
+  await patchFile(file, request);
 }
 
 async function restoreFile(): Promise<void> {

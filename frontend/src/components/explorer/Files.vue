@@ -56,8 +56,8 @@ evStore.getEventEmitter.on("FILE_ADDED", (file: CloudChestFile) => {
 evStore.getEventEmitter.on("FILE_UPDATED", (updatedFile: CloudChestFile) => {
   const index: number = fileList.value.findIndex((file: CloudChestFile) => file.FileCode === updatedFile.FileCode);
   
-  if(updatedFile.Folder?.Code !== folderCode.value) {
-      fileList.value.splice(index, 1);
+  if (updatedFile.Folder?.Code !== folderCode.value && (updatedFile.Folder?.Code !== '' || folderCode.value !== 'root')) {
+    folderList.value.splice(index, 1);
   } else if(index !== -1) {
     fileList.value[index] = updatedFile
   }

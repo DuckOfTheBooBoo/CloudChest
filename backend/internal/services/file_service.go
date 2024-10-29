@@ -301,13 +301,13 @@ func (fs *FileService) PatchFile(userID, fileID uint, patchBody models.FilePatch
 	var err error
 	if file.FileName != patchBody.FileName && patchBody.FileName != "" {
 		err = fs.renameFile(&file, patchBody.FileName)
-	} else if file.IsFavorite != patchBody.IsFavorite && patchBody.IsFavorite {
+	} else if (patchBody.IsFavorite != nil) {
 		// Why else if? Because patch request can only set one field at a time.
 		// if a user requests a file rename, they will not set a value to the rest of the fields
 		// in this case, patchBody.IsFavorite. Therefore, its default value is false.
 		// This might lead to a file being set as "not favorite" even though user only requests a rename
 		// file.IsFavorite = patchBody.IsFavorite
-		err = fs.toggleFileFavorite(&file, patchBody.IsFavorite)
+		err = fs.toggleFileFavorite(&file, *patchBody.IsFavorite)
 	} else if patchBody.Restore {
 		err = fs.restoreFile(&file)
 	} else {
