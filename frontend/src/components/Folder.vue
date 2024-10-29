@@ -42,8 +42,10 @@ async function toggleFavorite(): Promise<void> {
   const request: FolderPatchRequest = {
     is_favorite: isFavorite
   }
-  const patchedFolder: Folder = await patchFolder(props.folder.Code, request);
-  emit('folderState:update', patchedFolder);
+  // const patchedFolder: Folder = await patchFolder(props.folder.Code, request);
+  // emit('folderState:update', patchedFolder);
+  await patchFolder(props.folder.Code, request);
+  // emit('folderState:update', patchedFolder);
 }
 
 function moveFolder(): void {
@@ -64,10 +66,11 @@ async function deleteFolder(): Promise<void> {
 }
 
 async function restoreFolder(): Promise<void> {
-  const patchedFolder: Folder = await patchFolder(props.folder.Code, { is_restore: true });
-  if (patchedFolder) {
-    evStore.getEventEmitter.emit("FOLDER_UPDATED", patchedFolder)
-  }
+  // const patchedFolder: Folder = await patchFolder(props.folder.Code, { is_restore: true });
+  await patchFolder(props.folder.Code, { is_restore: true });
+  // if (patchedFolder) {
+  //   evStore.getEventEmitter.emit("FOLDER_UPDATED", patchedFolder)
+  // }
 }
 </script>
 

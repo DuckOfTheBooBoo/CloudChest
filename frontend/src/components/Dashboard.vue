@@ -207,10 +207,6 @@ provide('showFileNavigatorDialog', showFileNavigatorDialog);
             <v-list-item @click="() => { }" ref="newFolderDialogActivator">
               <v-icon>mdi-folder-plus</v-icon> New folder
             </v-list-item>
-            <v-list-item @click="() => { }">
-              <!-- TODO: WIP -->
-              <v-icon>mdi-folder-upload</v-icon> Upload folder
-            </v-list-item>
           </v-list>
         </v-menu>
       </v-list-item>
