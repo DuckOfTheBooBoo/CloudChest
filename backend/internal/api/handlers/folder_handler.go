@@ -27,6 +27,27 @@ func NewFolderHandler(fs *services.FolderService) *FolderHandler {
 	}
 }
 
+func (fh *FolderHandler) FolderDetail(c *gin.Context) {
+	userClaim := c.MustGet("userClaims").(*utils.UserClaims)
+	folderCode := c.Param("code")
+	
+	folder, err := fh.FolderService.GetFolderDetail(userClaim.ID, folderCode)
+	if err != nil {
+		switch e := err.(type) {
+			case *apperr.NotFoundError:
+				c.JSON(http.StatusNotFound, gin.H{
+					"error": e.Error(),
+				})
+				return
+			case *apperr.ServerError:
+				c.Status(http.StatusInternalServerError)
+				return
+		}
+	}
+
+	c.JSON(http.StatusOK, folder)
+}
+
 func (fh *FolderHandler) FolderList(c *gin.Context) {
 	userClaim := c.MustGet("userClaims").(*utils.UserClaims)
 	folderCode := c.Param("code")

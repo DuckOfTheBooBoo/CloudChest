@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { type Ref, ref, inject } from "vue"
 import Folder from "../models/folder";
-import { getFolderList } from "../utils/foldersApi";
+import { getFolderList, getFoldersResponse } from "../utils/foldersApi";
 
 const props = defineProps<{
     folder: Folder;
@@ -22,7 +22,14 @@ const blacklistedFolder: Ref<Folder | undefined> | undefined = inject('blacklist
 async function fetchChildFolders(): Promise<void> {
     isLoading.value = true;
     try {
-        const resp = await getFolderList(props.folder.Code);
+        let resp: getFoldersResponse | undefined = undefined
+        
+        if(props.folder.Code === '') {
+            resp = await getFolderList('root');
+        } else {
+            resp = await getFolderList(props.folder.Code);
+        }
+
         folderList.value = resp.folders;
         isLoading.value = false;
     } catch (error) {
@@ -46,7 +53,7 @@ function handleNested(folder: Folder): void {
 </script>
 
 <template>
-    <div class="tw-flex tw-flex-col tw-my-1" v-bind="$attrs" v-if="blacklistedFolder && folder.Code !== blacklistedFolder?.Code">
+    <div class="tw-flex tw-flex-col tw-my-1" v-bind="$attrs" v-if="folder.Code !== blacklistedFolder?.Code">
         <div 
             :style="'margin-left: ' + level * 2 + 'rem'"
             class="tw-flex tw-justify-start tw-gap-3 tw-py-1 tw-rounded-lg hover:tw-bg-[#424242] tw-transition-colors tw-cursor-pointer"

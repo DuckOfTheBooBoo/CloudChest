@@ -5,9 +5,20 @@ import { useEventEmitterStore } from "../stores/eventEmitterStore";
 import { FOLDER_UPDATED } from "../constants";
 import { type FolderPatchRequest } from "../models/requestModel";
 
-interface getFoldersResponse {
+export interface getFoldersResponse {
     folders: Folder[];
     hierarchies: FolderHierarchy[];
+}
+
+export async function getRootFolder(): Promise<Folder> {
+    try {
+        const response = await axios.get(`/api/folders/root/detail`);
+        return response.data as Folder;
+    } catch (error) {
+        console.error(error);
+    }
+
+    return {} as Folder;
 }
 
 export async function getFolderList(folderCode: string): Promise<getFoldersResponse> {

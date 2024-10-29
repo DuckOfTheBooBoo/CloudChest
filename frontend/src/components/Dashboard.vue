@@ -157,8 +157,6 @@ provide('showFileNavigatorDialog', showFileNavigatorDialog);
 
 <template>
   <!-- File Navigator Dialog -->
-  <!-- TODO: Add root to folder list -->
-  <!-- TODO: Fix folder list not showing bug when file is selected -->
   <v-dialog
     v-model="fileListNavDialog"
     scrollable 

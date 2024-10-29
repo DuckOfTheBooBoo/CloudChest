@@ -124,6 +124,35 @@ func (fs *FolderService) ListFolders(userID uint, folderCode string) (*models.Fo
 	}, nil
 }
 
+func (fs *FolderService) GetFolderDetail(userID uint, folderCode string) (*models.Folder, error) {
+	var folder models.Folder
+
+	query := fs.DB.Where("user_id = ? AND (code IS NULL OR code = '')", userID)
+	if folderCode != "root" {
+		query = fs.DB.Where("user_id = ? AND code = ?", userID, folderCode)
+	}
+
+	if err := query.First(&folder).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, &apperr.NotFoundError{
+				BaseError: &apperr.BaseError{
+					Message: "Folder not found",
+					Err:     err,
+				},
+			}
+		}
+
+		return nil, &apperr.ServerError{
+			BaseError: &apperr.BaseError{
+				Message: "Failed to get folder detail",
+				Err:     err,
+			},
+		}
+	}
+
+	return &folder, nil
+}
+
 func (fs *FolderService) ListFavoriteFolders(userID uint) (*models.FolderResponse, error) {
 	var favoriteFolders []*models.Folder
 	if err := fs.DB.Where("user_id = ? AND is_favorite = ?", userID, true).Find(&favoriteFolders).Error; err != nil {
@@ -192,24 +221,18 @@ func (fs *FolderService) PatchFolder(userID uint, folderCode string, folderUpdat
 		if err != nil {
 			return nil, err
 		}
-	}
-
-	if folder.IsFavorite != folderUpdateBody.IsFavorite {
+	} else if folder.IsFavorite != folderUpdateBody.IsFavorite {
 		err = fs.toggleFolderFavorite(&folder, folderUpdateBody.IsFavorite)
 		if err != nil {
 			return nil, err
 		}
-	}
-
-	if folderUpdateBody.ParentFolderCode != "" {
-		err = fs.moveFolder(&folder, folderUpdateBody.ParentFolderCode, userID)
+	} else if folderUpdateBody.Restore {
+		err = fs.restoreFolder(&folder)
 		if err != nil {
 			return nil, err
 		}
-	}
-
-	if folderUpdateBody.Restore {
-		err = fs.restoreFolder(&folder)
+	} else { // TODO: unsafe, refactor later
+		err = fs.moveFolder(&folder, folderUpdateBody.ParentFolderCode, userID)
 		if err != nil {
 			return nil, err
 		}
@@ -277,7 +300,13 @@ func (fs *FolderService) moveFolder(folder *models.Folder, targetFolderCode stri
 		// Set
 		oldParentFolder := folder.ParentFolder
 		var parentFolder models.Folder
-		if err := tx.Where("code = ? AND user_id = ?", targetFolderCode, userID).First(&parentFolder).Error; err != nil {
+
+		query := tx.Where("code = ? AND user_id = ?", targetFolderCode, userID)
+		if targetFolderCode == "" {
+			query = tx.Where("user_id = ? AND (code IS NULL OR code = '')", userID)
+		}
+
+		if err := query.First(&parentFolder).Error; err != nil {
 			return &apperr.NotFoundError{
 				BaseError: &apperr.BaseError{
 					Message: "Folder not found",

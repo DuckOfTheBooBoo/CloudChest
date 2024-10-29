@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import type Folder from "../models/folder";
-import { getFolderList } from "../utils/foldersApi";
+import { getFolderList, getRootFolder } from "../utils/foldersApi";
 import FolderListView from "./FolderListView.vue";
 import { onMounted, type Ref, ref, provide } from "vue";
 
@@ -20,8 +20,12 @@ const emits = defineEmits<{
 }>();
 
 onMounted(async () => {
-    const resp = await getFolderList("root");
-    folders.value = resp.folders;
+    // const resp = await getFolderList("root");
+    // folders.value = [getRootFolder()];
+    // folders.value.unshift(rootFolder);
+    const rootFolder = await getRootFolder();
+    folders.value = [rootFolder];
+    
 })
 
 function handleFolderSelect(folder: Folder): void {
