@@ -23,7 +23,7 @@ import (
 )
 
 type FolderService struct {
-	DB *gorm.DB
+	DB           *gorm.DB
 	BucketClient *models.BucketClient
 }
 
@@ -69,7 +69,7 @@ func (fs *FolderService) ListFolders(userID uint, folderCode string) (*models.Fo
 			return nil, &apperr.NotFoundError{
 				BaseError: &apperr.BaseError{
 					Message: "Folder not found",
-					Err: err,
+					Err:     err,
 				},
 			}
 		}
@@ -77,11 +77,11 @@ func (fs *FolderService) ListFolders(userID uint, folderCode string) (*models.Fo
 		return nil, &apperr.ServerError{
 			BaseError: &apperr.BaseError{
 				Message: "Failed to list folders",
-				Err: err,
+				Err:     err,
 			},
 		}
 	}
-		
+
 	// Generate hierarchy
 	var currentParent *models.Folder = &parentFolder
 	var hierarchies []models.FolderHierarchy
@@ -92,7 +92,7 @@ func (fs *FolderService) ListFolders(userID uint, folderCode string) (*models.Fo
 				return nil, &apperr.NotFoundError{
 					BaseError: &apperr.BaseError{
 						Message: "Folder not found",
-						Err: err,
+						Err:     err,
 					},
 				}
 
@@ -100,7 +100,7 @@ func (fs *FolderService) ListFolders(userID uint, folderCode string) (*models.Fo
 			return nil, &apperr.ServerError{
 				BaseError: &apperr.BaseError{
 					Message: "Failed to list folders",
-					Err: err,
+					Err:     err,
 				},
 			}
 		}
@@ -119,7 +119,7 @@ func (fs *FolderService) ListFolders(userID uint, folderCode string) (*models.Fo
 	})
 
 	return &models.FolderResponse{
-		Folders: parentFolder.ChildFolders,
+		Folders:     parentFolder.ChildFolders,
 		Hierarchies: hierarchies,
 	}, nil
 }
@@ -130,7 +130,7 @@ func (fs *FolderService) ListFavoriteFolders(userID uint) (*models.FolderRespons
 		return nil, &apperr.ServerError{
 			BaseError: &apperr.BaseError{
 				Message: "Failed to list favorite folders",
-				Err: err,
+				Err:     err,
 			},
 		}
 	}
@@ -146,7 +146,7 @@ func (fs *FolderService) ListTrashFolders(userID uint) (*models.FolderResponse, 
 		return nil, &apperr.ServerError{
 			BaseError: &apperr.BaseError{
 				Message: "Failed to list trash folders",
-				Err: err,
+				Err:     err,
 			},
 		}
 	}
@@ -157,6 +157,7 @@ func (fs *FolderService) ListTrashFolders(userID uint) (*models.FolderResponse, 
 }
 
 // PatchFolder updates a folder. If folderUpdateBody.Restore is true, it will restore a soft-deleted folder.
+// Refactor, isolate each field update to its own method
 func (fs *FolderService) PatchFolder(userID uint, folderCode string, folderUpdateBody models.FolderUpdateBody) (*models.Folder, error) {
 	var folder models.Folder
 
@@ -171,7 +172,7 @@ func (fs *FolderService) PatchFolder(userID uint, folderCode string, folderUpdat
 			return nil, &apperr.NotFoundError{
 				BaseError: &apperr.BaseError{
 					Message: "Folder not found",
-					Err: err,
+					Err:     err,
 				},
 			}
 		}
@@ -179,66 +180,167 @@ func (fs *FolderService) PatchFolder(userID uint, folderCode string, folderUpdat
 		return nil, &apperr.ServerError{
 			BaseError: &apperr.BaseError{
 				Message: "Failed to patch folder",
-				Err: err,
+				Err:     err,
 			},
 		}
 	}
 
+	var err error
+
 	if folderUpdateBody.FolderName != "" {
-		folder.Name = folderUpdateBody.FolderName
+		err = fs.renameFolder(&folder, folderUpdateBody.FolderName)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	if folder.IsFavorite != folderUpdateBody.IsFavorite {
-		folder.IsFavorite = folderUpdateBody.IsFavorite
+		err = fs.toggleFolderFavorite(&folder, folderUpdateBody.IsFavorite)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	if folderUpdateBody.ParentFolderCode != "" {
-		var parentFolder models.Folder
-		if err := fs.DB.Where("code = ? AND user_id = ?", folderUpdateBody.ParentFolderCode, userID).First(&parentFolder).Error; err != nil {
-			return nil, &apperr.NotFoundError{
-				BaseError: &apperr.BaseError{
-					Message: "Folder not found",
-					Err: err,
-				},
-			}
+		err = fs.moveFolder(&folder, folderUpdateBody.ParentFolderCode, userID)
+		if err != nil {
+			return nil, err
 		}
-
-		folder.ParentID = &parentFolder.ID
-		folder.ParentFolder = &parentFolder
 	}
 
 	if folderUpdateBody.Restore {
-		if err := fs.DB.Unscoped().Model(&folder).Update("deleted_at", nil).Error; err != nil {
-			return nil, &apperr.ServerError{
-				BaseError: &apperr.BaseError{
-					Message: "Failed to restore folder " + folder.Name,
-					Err: err,
-				},
-			}
-		}
-
-		if folder.ParentFolder.DeletedAt.Valid {
-			if err := fs.RecursivelyRestoreFoldersUpwards(folder.ParentFolder); err != nil {
-				return nil, &apperr.ServerError{
-					BaseError: &apperr.BaseError{
-						Message: "Failed to restore folder " + folder.Name,
-						Err: err,
-					},
-				}
-			}
-		}
-	}
-
-	if err := fs.DB.Save(&folder).Error; err != nil {
-		return nil, &apperr.ServerError{
-			BaseError: &apperr.BaseError{
-				Message: "Failed to update folder " + folder.Name,
-				Err: err,
-			},
+		err = fs.restoreFolder(&folder)
+		if err != nil {
+			return nil, err
 		}
 	}
 
 	return &folder, nil
+}
+
+func (fs *FolderService) renameFolder(folder *models.Folder, newName string) error {
+	folder.Name = newName
+	if err := fs.DB.Save(folder).Error; err != nil {
+		return &apperr.ServerError{
+			BaseError: &apperr.BaseError{
+				Message: fmt.Sprintf("Failed to rename folder from %s to %s", folder.Name, newName),
+				Err:     err,
+			},
+		}
+	}
+
+	return nil
+}
+
+func (fs *FolderService) restoreFolder(folder *models.Folder) error {
+	if err := fs.DB.Unscoped().Model(&folder).Update("deleted_at", nil).Error; err != nil {
+		return &apperr.ServerError{
+			BaseError: &apperr.BaseError{
+				Message: "Failed to restore folder " + folder.Name,
+				Err:     err,
+			},
+		}
+	}
+
+	if folder.ParentFolder.DeletedAt.Valid {
+		if err := fs.RecursivelyRestoreFoldersUpwards(folder.ParentFolder); err != nil {
+			return &apperr.ServerError{
+				BaseError: &apperr.BaseError{
+					Message: "Failed to restore folder " + folder.Name,
+					Err:     err,
+				},
+			}
+		}
+	}
+
+	return nil
+}
+
+func (fs *FolderService) toggleFolderFavorite(folder *models.Folder, isFavorite bool) error {
+	folder.IsFavorite = isFavorite
+
+	if err := fs.DB.Save(folder).Error; err != nil {
+		return &apperr.ServerError{
+			BaseError: &apperr.BaseError{
+				Message: "Failed to update folder " + folder.Name,
+				Err:     err,
+			},
+		}
+	}
+
+	return nil
+}
+
+func (fs *FolderService) moveFolder(folder *models.Folder, targetFolderCode string, userID uint) error {
+	err := fs.DB.Transaction(func(tx *gorm.DB) error {
+		// Find new parent folder
+		// Set
+		oldParentFolder := folder.ParentFolder
+		var parentFolder models.Folder
+		if err := tx.Where("code = ? AND user_id = ?", targetFolderCode, userID).First(&parentFolder).Error; err != nil {
+			return &apperr.NotFoundError{
+				BaseError: &apperr.BaseError{
+					Message: "Folder not found",
+					Err:     err,
+				},
+			}
+		}
+
+		// Update folder with new parent
+		folder.ParentID = &parentFolder.ID
+		folder.ParentFolder = &parentFolder
+
+		if !parentFolder.HasChild {
+			parentFolder.HasChild = true
+		}
+
+		if err := tx.Save(folder).Error; err != nil {
+			return &apperr.ServerError{
+				BaseError: &apperr.BaseError{
+					Message: "Failed to update folder",
+					Err:     err,
+				},
+			}
+		}
+
+		if err := tx.Save(parentFolder).Error; err != nil {
+			return &apperr.ServerError{
+				BaseError: &apperr.BaseError{
+					Message: "Failed to update new parent folder",
+					Err:     err,
+				},
+			}
+		}
+
+		// Attempt to check if old parent folder still has children (folder), if not set has_child to false, else true
+		var folderCount int64
+		if err := tx.Model(&models.Folder{}).Where("parent_id = ?", oldParentFolder.ID).Count(&folderCount).Error; err != nil {
+			return &apperr.ServerError{
+				BaseError: &apperr.BaseError{
+					Message: "Failed to count folder child",
+					Err:     err,
+				},
+			}
+		}
+
+		hasChild := folderCount > 0
+		if err := tx.Model(&models.Folder{}).Where("id = ?", oldParentFolder.ID).Update("has_child", hasChild).Error; err != nil {
+			return &apperr.ServerError{
+				BaseError: &apperr.BaseError{
+					Message: "Failed to update folder hasChild state",
+					Err:     err,
+				},
+			}
+		}
+
+		return nil
+	})
+
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
 
 // FetchFolderFiles fetches all files in the given folder.
@@ -249,14 +351,14 @@ func (fs *FolderService) FetchFolderFiles(userID uint, folderCode string) ([]*mo
 	if folderCode == "root" {
 		folderCode = ""
 	}
-	
+
 	var parentFolder models.Folder
 	if err := fs.DB.Where("user_id = ? AND code = ?", userID, folderCode).Preload("Files").First(&parentFolder).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, &apperr.NotFoundError{
 				BaseError: &apperr.BaseError{
 					Message: "Folder not found",
-					Err: err,
+					Err:     err,
 				},
 			}
 		}
@@ -264,7 +366,7 @@ func (fs *FolderService) FetchFolderFiles(userID uint, folderCode string) ([]*mo
 		return nil, &apperr.ServerError{
 			BaseError: &apperr.BaseError{
 				Message: "Failed to fetch folder files",
-				Err: err,
+				Err:     err,
 			},
 		}
 	}
@@ -285,7 +387,7 @@ func (fs *FolderService) UploadFile(userID uint, folderCode string, file *multip
 			return nil, nil, &apperr.NotFoundError{
 				BaseError: &apperr.BaseError{
 					Message: "Folder not found",
-					Err: err,
+					Err:     err,
 				},
 			}
 		}
@@ -293,18 +395,17 @@ func (fs *FolderService) UploadFile(userID uint, folderCode string, file *multip
 		return nil, nil, &apperr.ServerError{
 			BaseError: &apperr.BaseError{
 				Message: "Failed to upload file",
-				Err: err,
+				Err:     err,
 			},
 		}
 	}
-
 
 	fileCode, err := uuid.NewV4()
 	if err != nil {
 		return nil, nil, &apperr.ServerError{
 			BaseError: &apperr.BaseError{
 				Message: "Failed to generate file code",
-				Err: err,
+				Err:     err,
 			},
 		}
 	}
@@ -332,7 +433,7 @@ func (fs *FolderService) UploadFile(userID uint, folderCode string, file *multip
 		return nil, nil, &apperr.ServerError{
 			BaseError: &apperr.BaseError{
 				Message: "Failed to open file",
-				Err: err,
+				Err:     err,
 			},
 		}
 	}
@@ -345,7 +446,7 @@ func (fs *FolderService) UploadFile(userID uint, folderCode string, file *multip
 		return nil, nil, &apperr.ServerError{
 			BaseError: &apperr.BaseError{
 				Message: "Failed to read file",
-				Err: err,
+				Err:     err,
 			},
 		}
 	}
@@ -375,7 +476,7 @@ func (fs *FolderService) UploadFile(userID uint, folderCode string, file *multip
 		return nil, nil, &apperr.ServerError{
 			BaseError: &apperr.BaseError{
 				Message: "Failed to upload file",
-				Err: err,
+				Err:     err,
 			},
 		}
 	}
@@ -409,7 +510,7 @@ func (fs *FolderService) PostUploadProcess(file *models.File, uploadedFileBytes 
 				log.Printf("Error while writing temp file: %v", err)
 				cancel()
 			}
-		
+
 			tempThumbFilePathChan <- tempPath
 			tempHLSbFilePathChan <- tempPath
 		}()
@@ -465,7 +566,7 @@ func (fs *FolderService) CreateFolder(folderName, parentFolderCode string, userI
 		return nil, &apperr.ServerError{
 			BaseError: &apperr.BaseError{
 				Message: "Failed to generate folder code",
-				Err: err,
+				Err:     err,
 			},
 		}
 	}
@@ -484,7 +585,7 @@ func (fs *FolderService) CreateFolder(folderName, parentFolderCode string, userI
 			return nil, &apperr.NotFoundError{
 				BaseError: &apperr.BaseError{
 					Message: "Parent folder not found",
-					Err: err,
+					Err:     err,
 				},
 			}
 		}
@@ -492,7 +593,7 @@ func (fs *FolderService) CreateFolder(folderName, parentFolderCode string, userI
 		return nil, &apperr.ServerError{
 			BaseError: &apperr.BaseError{
 				Message: "Failed to fetch parent folder",
-				Err: err,
+				Err:     err,
 			},
 		}
 	}
@@ -508,7 +609,7 @@ func (fs *FolderService) CreateFolder(folderName, parentFolderCode string, userI
 		return nil, &apperr.ServerError{
 			BaseError: &apperr.BaseError{
 				Message: "Failed to create folder",
-				Err: err,
+				Err:     err,
 			},
 		}
 	}
@@ -518,7 +619,7 @@ func (fs *FolderService) CreateFolder(folderName, parentFolderCode string, userI
 		return nil, &apperr.ServerError{
 			BaseError: &apperr.BaseError{
 				Message: "Failed to update parent folder",
-				Err: err,
+				Err:     err,
 			},
 		}
 	}
@@ -539,7 +640,7 @@ func (fs *FolderService) DeleteFolderTemp(folderCode string, userID uint) error 
 			return &apperr.NotFoundError{
 				BaseError: &apperr.BaseError{
 					Message: "Folder not found",
-					Err: err,
+					Err:     err,
 				},
 			}
 		}
@@ -547,7 +648,7 @@ func (fs *FolderService) DeleteFolderTemp(folderCode string, userID uint) error 
 		return &apperr.ServerError{
 			BaseError: &apperr.BaseError{
 				Message: "Failed to delete folder",
-				Err: err,
+				Err:     err,
 			},
 		}
 	}
@@ -555,9 +656,8 @@ func (fs *FolderService) DeleteFolderTemp(folderCode string, userID uint) error 
 	return nil
 }
 
-
 type DeletedFilesAndFoldersList struct {
-	DeletedFiles []string `json:"deleted_files"`
+	DeletedFiles   []string `json:"deleted_files"`
 	DeletedFolders []string `json:"deleted_folders"`
 }
 
@@ -570,7 +670,7 @@ func (fs *FolderService) DeleteFolderPermanent(folderCode string, userID uint) (
 			return nil, &apperr.NotFoundError{
 				BaseError: &apperr.BaseError{
 					Message: "Folder not found",
-					Err: err,
+					Err:     err,
 				},
 			}
 		}
@@ -578,7 +678,7 @@ func (fs *FolderService) DeleteFolderPermanent(folderCode string, userID uint) (
 		return nil, &apperr.ServerError{
 			BaseError: &apperr.BaseError{
 				Message: "Failed to delete folder",
-				Err: err,
+				Err:     err,
 			},
 		}
 	}
@@ -587,13 +687,13 @@ func (fs *FolderService) DeleteFolderPermanent(folderCode string, userID uint) (
 		return nil, &apperr.ServerError{
 			BaseError: &apperr.BaseError{
 				Message: "Failed to load folder",
-				Err: err,
+				Err:     err,
 			},
 		}
 	}
 
 	var deletedObjects DeletedFilesAndFoldersList = DeletedFilesAndFoldersList{
-		DeletedFiles: []string{},
+		DeletedFiles:   []string{},
 		DeletedFolders: []string{},
 	}
 
@@ -601,7 +701,7 @@ func (fs *FolderService) DeleteFolderPermanent(folderCode string, userID uint) (
 		return nil, &apperr.ServerError{
 			BaseError: &apperr.BaseError{
 				Message: "Failed to delete folder",
-				Err: err,
+				Err:     err,
 			},
 		}
 	}
@@ -623,15 +723,14 @@ func (fs *FolderService) RecursivelyRestoreFoldersUpwards(parentFolder *models.F
 	if err := fs.DB.Unscoped().Model(&models.Folder{}).Where("id = ?", parentFolder.ParentID).First(&parentFolder.ParentFolder).Error; err != nil {
 		return err
 	}
-	
+
 	if parentFolder.ParentFolder.Name == "/" {
 		return nil
 	}
-	
+
 	// Recursively restore the parent's parent
 	return fs.RecursivelyRestoreFoldersUpwards(parentFolder.ParentFolder)
 }
-
 
 // loadFolders preloads the immediate child folders of the given folder, and then
 // recursively loads all the children of each child folder. It returns an error if
@@ -656,7 +755,7 @@ func (fs *FolderService) loadFolders(folder *models.Folder) error {
 // This is called by DeleteFolderPermanent.
 func (fs *FolderService) processFolder(deletedObjects *DeletedFilesAndFoldersList, folder *models.Folder) error {
 	bc := fs.BucketClient
-	for _, child := range(folder.ChildFolders) {
+	for _, child := range folder.ChildFolders {
 		if err := fs.processFolder(deletedObjects, child); err != nil {
 			return err
 		}
@@ -664,7 +763,7 @@ func (fs *FolderService) processFolder(deletedObjects *DeletedFilesAndFoldersLis
 
 	var toBeDeletedFiles []*models.File
 	var filesThumbnail []*models.Thumbnail
-	for _, file := range(folder.Files) {
+	for _, file := range folder.Files {
 		log.Printf("Deleting file %s (%s)\n", file.FileName, file.FileCode)
 		toBeDeletedFiles = append(toBeDeletedFiles, file)
 		if file.Thumbnail != nil {
@@ -677,7 +776,7 @@ func (fs *FolderService) processFolder(deletedObjects *DeletedFilesAndFoldersLis
 		if err := fs.DB.Unscoped().Delete(&filesThumbnail).Error; err != nil {
 			return err
 		}
-	
+
 		thumbObjCh := make(chan minio.ObjectInfo)
 		go func() {
 			defer close(thumbObjCh)
@@ -690,7 +789,7 @@ func (fs *FolderService) processFolder(deletedObjects *DeletedFilesAndFoldersLis
 				}
 			}
 		}()
-	
+
 		for err := range bc.Client.RemoveObjects(bc.Context, bc.ServiceBucket, thumbObjCh, minio.RemoveObjectsOptions{}) {
 			if err.Err != nil {
 				return err.Err
