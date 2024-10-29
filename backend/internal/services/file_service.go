@@ -298,56 +298,45 @@ func (fs *FileService) PatchFile(userID, fileID uint, patchBody models.FilePatch
 		}
 	}
 
+	var err error
 	if file.FileName != patchBody.FileName && patchBody.FileName != "" {
-		file.FileName = patchBody.FileName
+		err = fs.renameFile(&file, patchBody.FileName)
 	} else if file.IsFavorite != patchBody.IsFavorite && patchBody.IsFavorite {
 		// Why else if? Because patch request can only set one field at a time.
 		// if a user requests a file rename, they will not set a value to the rest of the fields
 		// in this case, patchBody.IsFavorite. Therefore, its default value is false.
 		// This might lead to a file being set as "not favorite" even though user only requests a rename
-		file.IsFavorite = patchBody.IsFavorite
+		// file.IsFavorite = patchBody.IsFavorite
+		err = fs.toggleFileFavorite(&file, patchBody.IsFavorite)
+	} else if patchBody.Restore {
+		err = fs.restoreFile(&file)
+	} else {
+		err = fs.moveFile(&file, patchBody.FolderCode, userID)
 	}
 
-	if patchBody.FolderCode != "" {
-		var parentFolder models.Folder
-		if err := fs.DB.Where("code = ? AND user_id = ?", patchBody.FolderCode, userID).First(&parentFolder).Error; err != nil {
-			return nil, &apperr.NotFoundError{
-				BaseError: &apperr.BaseError{
-					Message: "Folder not found",
-					Err: err,
-				},
-			}
-		}
-
-		file.FolderID = parentFolder.ID
-		file.Folder = &parentFolder
+	if err != nil {
+		return nil, err
 	}
 
-	if patchBody.Restore {
-		if err := fs.DB.Unscoped().Model(&file).Update("deleted_at", nil).Error; err != nil {
-			return nil, &apperr.ServerError{
-				BaseError: &apperr.BaseError{
-					Message: "Internal server error ocurred",
-					Err:     err,
-				},
-			}
-		}
+	return &file, nil
+}
 
-		if file.Folder.DeletedAt.Valid {
-			folderService := NewFolderService(fs.DB)
-			if err := folderService.RecursivelyRestoreFoldersUpwards(file.Folder); err != nil {
-				return nil, &apperr.ServerError{
-					BaseError: &apperr.BaseError{
-						Message: "failed to restore file's parent folder",
-						Err:     err,
-					},
-				}
-			}
+func (fs *FileService) renameFile(file *models.File, newFileName string) error {
+	if err := fs.DB.Model(&file).Update("file_name", newFileName).Error; err != nil {
+		return &apperr.ServerError{
+			BaseError: &apperr.BaseError{
+				Message: "Failed to rename file",
+				Err:     err,
+			},
 		}
 	}
 
-	if err := fs.DB.Save(&file).Error; err != nil {
-		return nil, &apperr.ServerError{
+	return nil
+}
+
+func (fs *FileService) restoreFile(file *models.File) error {
+	if err := fs.DB.Unscoped().Model(&file).Update("deleted_at", nil).Error; err != nil {
+		return &apperr.ServerError{
 			BaseError: &apperr.BaseError{
 				Message: "Internal server error ocurred",
 				Err:     err,
@@ -355,7 +344,120 @@ func (fs *FileService) PatchFile(userID, fileID uint, patchBody models.FilePatch
 		}
 	}
 
-	return &file, nil
+	if file.Folder.DeletedAt.Valid {
+		folderService := NewFolderService(fs.DB)
+		if err := folderService.RecursivelyRestoreFoldersUpwards(file.Folder); err != nil {
+			return &apperr.ServerError{
+				BaseError: &apperr.BaseError{
+					Message: "failed to restore file's parent folder",
+					Err:     err,
+				},
+			}
+		}
+	}
+
+	return nil
+}
+
+func (fs *FileService) toggleFileFavorite(file *models.File, isFavorite bool) error {
+	file.IsFavorite = isFavorite
+	if err := fs.DB.Save(&file).Error; err != nil {
+		return &apperr.ServerError{
+			BaseError: &apperr.BaseError{
+				Message: "Internal server error ocurred",
+				Err:     err,
+			},
+		}
+	}
+
+	return nil
+}
+
+func (fs *FileService) moveFile(file *models.File, targetFolderCode string, userID uint) error {
+	err := fs.DB.Transaction(func(tx *gorm.DB) error {
+		// Find new parent folder
+		// Set
+		oldParentFolder := file.Folder
+		var parentFolder models.Folder
+
+		query := tx.Where("code = ? AND user_id = ?", targetFolderCode, userID)
+		if targetFolderCode == "" {
+			query = tx.Where("user_id = ? AND (code IS NULL OR code = '')", userID)
+		}
+
+		if err := query.First(&parentFolder).Error; err != nil {
+			return &apperr.NotFoundError{
+				BaseError: &apperr.BaseError{
+					Message: "Folder not found",
+					Err:     err,
+				},
+			}
+		}
+
+		// Update folder with new parent
+		file.FolderID = parentFolder.ID
+		file.Folder = &parentFolder
+
+		if !parentFolder.HasChild {
+			parentFolder.HasChild = true
+		}
+
+		if err := tx.Save(file).Error; err != nil {
+			return &apperr.ServerError{
+				BaseError: &apperr.BaseError{
+					Message: "Failed to update file movement",
+					Err:     err,
+				},
+			}
+		}
+
+		if err := tx.Save(parentFolder).Error; err != nil {
+			return &apperr.ServerError{
+				BaseError: &apperr.BaseError{
+					Message: "Failed to update new parent folder",
+					Err:     err,
+				},
+			}
+		}
+
+		// Attempt to check if old parent folder still has children (folder), if not set has_child to false, else true
+		var folderCount int64
+		if err := tx.Model(&models.Folder{}).Where("parent_id = ?", oldParentFolder.ID).Count(&folderCount).Error; err != nil {
+			return &apperr.ServerError{
+				BaseError: &apperr.BaseError{
+					Message: "Failed to count folder child",
+					Err:     err,
+				},
+			}
+		}
+
+		hasChild := folderCount > 0
+		if err := tx.Model(&models.Folder{}).Where("id = ?", oldParentFolder.ID).Update("has_child", hasChild).Error; err != nil {
+			return &apperr.ServerError{
+				BaseError: &apperr.BaseError{
+					Message: "Failed to update folder hasChild state",
+					Err:     err,
+				},
+			}
+		}
+
+		return nil
+	})
+
+	if err != nil {
+		return err
+	}
+
+	if err := fs.DB.Model(&file).Preload("Folder").Find(&file).Error; err != nil {
+		return &apperr.ServerError{
+			BaseError: &apperr.BaseError{
+				Message: "Failed to preload file's parent folder",
+				Err:     err,
+			},
+		}
+	}
+
+	return nil
 }
 
 func (fs *FileService) GetPresignedURL(userID uint, fileCode string) (*url.URL, error) {

@@ -30,6 +30,7 @@ export class CloudChestFile {
   FileType: string;
   IsFavorite: boolean;
   IsPreviewable: boolean;
+  Folder: Folder | null;
 
   constructor(object: FileResponse) {
     this.ID = object.ID;
@@ -44,6 +45,7 @@ export class CloudChestFile {
     this.FileType = object.FileType;
     this.IsFavorite = object.IsFavorite;
     this.IsPreviewable = object.IsPreviewable;
+    this.Folder = object.Folder;
   }
 }
 

@@ -58,6 +58,10 @@ evStore.getEventEmitter.on("FILE_UPDATED", (updatedFile: CloudChestFile) => {
   const index: number = fileList.value.findIndex((file: CloudChestFile) => file.FileCode === updatedFile.FileCode);
   if(index !== -1) {
     fileList.value[index] = updatedFile
+
+    if(updatedFile.Folder?.Code !== folderCode.value) {
+      fileList.value.splice(index, 1);
+    }
   }
 })
 
