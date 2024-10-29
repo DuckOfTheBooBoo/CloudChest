@@ -33,12 +33,11 @@ evStore.getEventEmitter.on("FOLDER_ADDED", (folder: FolderModel) => {
 
 evStore.getEventEmitter.on("FOLDER_UPDATED", (updatedFolder: FolderModel) => {
   const index: number = folderList.value.findIndex((folder: FolderModel) => folder.Code === updatedFolder.Code);
-  if(index !== -1) {
-    folderList.value[index] = updatedFolder
 
-    if(updatedFolder.Code !== folderCode.value) {
-      folderList.value.splice(index, 1);
-    }
+  if (updatedFolder.ParentFolder?.Code !== folderCode.value && (updatedFolder.ParentFolder?.Code !== '' || folderCode.value !== 'root')) {
+    folderList.value.splice(index, 1);
+  } else if (index !== -1) {
+    folderList.value[index] = updatedFolder;
   }
 })
 
@@ -56,12 +55,11 @@ evStore.getEventEmitter.on("FILE_ADDED", (file: CloudChestFile) => {
 
 evStore.getEventEmitter.on("FILE_UPDATED", (updatedFile: CloudChestFile) => {
   const index: number = fileList.value.findIndex((file: CloudChestFile) => file.FileCode === updatedFile.FileCode);
-  if(index !== -1) {
-    fileList.value[index] = updatedFile
-
-    if(updatedFile.Folder?.Code !== folderCode.value) {
+  
+  if(updatedFile.Folder?.Code !== folderCode.value) {
       fileList.value.splice(index, 1);
-    }
+  } else if(index !== -1) {
+    fileList.value[index] = updatedFile
   }
 })
 

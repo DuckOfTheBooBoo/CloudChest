@@ -369,6 +369,15 @@ func (fs *FolderService) moveFolder(folder *models.Folder, targetFolderCode stri
 		return err
 	}
 
+	if err := fs.DB.Model(&folder).Preload("ParentFolder").Find(&folder).Error; err != nil {
+		return &apperr.ServerError{
+			BaseError: &apperr.BaseError{
+				Message: "Failed to fetch parent folder post movement",
+				Err:     err,
+			},
+		}
+	}
+
 	return nil
 }
 

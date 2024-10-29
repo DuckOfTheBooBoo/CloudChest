@@ -10,4 +10,5 @@ export default interface Folder {
     UpdatedAt: Date;
     DeletedAt: Date | null;
     folderCode: string | null;
+    ParentFolder: Folder | null;
 }
