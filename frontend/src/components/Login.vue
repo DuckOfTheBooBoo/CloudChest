@@ -103,7 +103,7 @@ const submit = handleSubmit(async (values) => {
           <h3 class="text-center text-h3 bold my-4">Welcome Back!</h3>
         </div>
       </v-card-title>
-      <form @submit.prevent="submit">
+      <form @submit.prevent="submit" autocomplete="off">
         <v-card-text>
           <v-text-field
             class="tw-mb-2"
@@ -125,6 +125,7 @@ const submit = handleSubmit(async (values) => {
             label="Password"
             :type="visible ? 'text' : 'password'"
             id="password"
+            
             variant="outlined"
             spellcheck="false"
             @click:append-inner="visible = !visible"
