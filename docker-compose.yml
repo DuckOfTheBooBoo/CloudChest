@@ -1,0 +1,34 @@
+name: web-gallery-app
+services:
+  minio:
+    image: quay.io/minio/minio:latest
+    container_name: minio1
+    ports:
+        - "9000:9000"
+        - "9001:9001"
+    volumes:
+      - minio_data:/data
+    environment:
+      MINIO_ROOT_USER: root
+      MINIO_ROOT_PASSWORD: password
+    command: ["server", "/data", "--console-address", ":9001"]
+
+  db:
+    image: mariadb
+    ports:
+      - "3306:3306"
+    environment:
+      MARIADB_ROOT_PASSWORD: password
+      MARIADB_DATABASE: web_gallery_db
+    volumes:
+      - mariadb_data:/var/lib/mysql:Z
+    deploy:
+      resources:
+        limits:
+          memory: 1G  
+
+volumes:
+  minio_data:
+    driver: local
+  mariadb_data:
+    driver: local

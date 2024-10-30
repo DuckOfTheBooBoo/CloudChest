@@ -1,0 +1,2 @@
+export const FILE_UPDATED = "FILE_UPDATED";
+export const FOLDER_UPDATED = "FOLDER_UPDATED";
