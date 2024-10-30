@@ -1,0 +1,19 @@
+# frontend/Dockerfile
+# Use the Node.js image to build the Vue.js app
+FROM node:18-alpine as build
+
+# Set working directory and copy files
+WORKDIR /app
+COPY . .
+
+# Install dependencies and build the app
+RUN npm install
+RUN npm run build
+
+# Use Nginx to serve the static files
+FROM nginx:alpine
+COPY --from=build /app/dist /usr/share/nginx/html
+
+# Expose port 80 for Nginx
+EXPOSE 80
+CMD ["nginx", "-g", "daemon off;"]
