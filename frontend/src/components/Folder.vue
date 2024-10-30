@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { format } from "date-fns";
 import { ref, inject } from "vue";
 import Folder from "../models/folder";
 import Filename from "./Filename.vue";
@@ -126,7 +127,7 @@ async function restoreFolder(): Promise<void> {
                 <v-icon>mdi-folder-arrow-right</v-icon> <span class="tw-ml-1">Move to</span>
               </v-list-item>
 
-              <!-- FILE DETAILS DIALOG -->
+              <!-- TODO: FOLDER DETAILS DIALOG -->
               <v-list-item @click="() => { }">
                 <!-- DETAILS DIALOG -->
                 <v-dialog activator="parent" max-width="30rem" v-model="folderDetailDialog">
@@ -139,6 +140,22 @@ async function restoreFolder(): Promise<void> {
                         </div>
                       </v-card-title>
                       <v-card-text>
+                        <div class="tw-flex tw-flex-col">
+                          <div class="tw-flex tw-flex-row tw-justify-start">
+                            <p class="tw-w-1/2">Name: </p>
+                            <p class="tw-w-1/2">{{ folder.Name }}</p>
+                          </div>
+                          <v-divider class="tw-my-2"></v-divider>
+                          <div class="tw-flex tw-flex-row tw-justify-start">
+                            <p class="tw-w-1/2">Created At: </p>
+                            <p class="tw-w-1/2">{{ format(folder.CreatedAt, "PPPppp") }}</p>
+                          </div>
+                          <v-divider class="tw-my-2"></v-divider>
+                          <div class="tw-flex tw-flex-row tw-justify-start">
+                            <p class="tw-w-1/2">Updated At: </p>
+                            <p class="tw-w-1/2">{{ format(folder.UpdatedAt, "PPPppp") }}</p>
+                          </div>
+                        </div>
                       </v-card-text>
                     </v-card>
                   </template>
@@ -153,17 +170,14 @@ async function restoreFolder(): Promise<void> {
                 <span v-else><v-icon>mdi-star</v-icon>Unfavorite</span>
               </v-list-item>
 
-              <!-- TODO: DELETE FOLDER -->
               <v-list-item v-if="!folder.DeletedAt" @click="deleteFolder">
                 <v-icon>mdi-trash-can</v-icon> Delete
               </v-list-item>
 
-              <!-- TODO: RESTORE DELETED FOLDER -->
               <v-list-item v-else @click="restoreFolder">
                 <v-icon>mdi-delete-restore</v-icon> Restore
               </v-list-item>
 
-              <!-- TODO: PERMANENTLY DELETE FOLDER -->
               <v-list-item v-if="folder.DeletedAt" @click="() => { }">
                 <v-icon>mdi-delete-forever</v-icon> Prune
                 <v-dialog activator="parent" max-width="340">
