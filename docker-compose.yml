@@ -6,8 +6,8 @@ services:
   minio:
     image: quay.io/minio/minio:latest
     container_name: minio1
-    ports:
-      - "9000:9000"
+    # ports:
+    #   - "9000:9000"
       # Uncomment below to expose the MinIO web console
       # - "9001:9001"
     volumes:
@@ -53,8 +53,8 @@ services:
         condition: service_healthy
       minio:
         condition: service_healthy
-    # ports:
-      # -"3000:3000"
+    ports:
+      - "3000:3000"
     environment:
       DB_NAME: web_gallery_db
       DB_HOST: db # Use the Docker service name for MariaDB
@@ -63,6 +63,7 @@ services:
       MINIO_ENDPOINT: minio:9000  # Use the MinIO service name within Docker network
       MINIO_ACCESS_KEY: root # same as minio MINI_ROOT_USER
       MINIO_SECRET_KEY: password # same as minio MINIO_ROOT_PASSWORD
+      GO_ENV: production
     networks:
       - app-network
 

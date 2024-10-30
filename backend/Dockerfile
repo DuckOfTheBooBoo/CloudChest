@@ -20,5 +20,5 @@ COPY --from=build /app/server .
 ENTRYPOINT ["./migrator"]
 
 # Expose the port used by the Go app
-EXPOSE 8080
+EXPOSE 3000
 CMD ["./server"]

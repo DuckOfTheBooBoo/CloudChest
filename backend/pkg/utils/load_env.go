@@ -9,6 +9,10 @@ import (
 )
 
 func LoadEnv() error {
+    if os.Getenv("GO_ENV") == "production" {
+        return nil
+    }
+
 	dir, err := os.Getwd()
     if err != nil {
         return err
