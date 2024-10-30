@@ -1,3 +1,7 @@
+*
+!/**/
+!*.*
+
 # Created by https://www.toptal.com/developers/gitignore/api/go,dotenv
 # Edit at https://www.toptal.com/developers/gitignore?templates=go,dotenv
 
@@ -31,3 +35,4 @@ go.work
 
 backend
 *.rest
+start.sh
