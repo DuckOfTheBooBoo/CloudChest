@@ -11,7 +11,7 @@ type FileUpdateBody struct {
 type FilePatchBody struct {
 	FileName   string `json:"file_name,omitempty"`
 	FolderCode string `validate:"ascii" json:"folder_code,omitempty"`
-	IsFavorite *bool   `validate:"boolean" json:"is_favorite,omitempty"`
+	IsFavorite *bool  `validate:"omitempty,boolean" json:"is_favorite"`
 	Restore    bool   `validate:"boolean" json:"is_restore,omitempty"`
 }
 
