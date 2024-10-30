@@ -6,11 +6,9 @@ import axios from "axios";
 import { ref, mergeProps, provide } from "vue";
 import { useRouter, useRoute } from "vue-router";
 // Pinia
-import { useEventEmitterStore } from "../stores/eventEmitterStore"
 import {useAxiosManagerStore} from "../stores/axiosManagerStore";
 
 // Local imports
-import { FILE_UPDATED } from "../constants"
 import isFolder from "../utils/isFolder";
 
 // API
@@ -41,7 +39,6 @@ const fileListNavDialog = ref<boolean>(false);
 const moveObjectPlaceholder = ref<CloudChestFile | Folder | null>(null);
 const blacklistedFolder = ref<Folder | undefined>();
 
-const eventEmitter = useEventEmitterStore();
 
 const uploadFileDialog = ref<boolean>(false);
 const upFileDialogActivator = ref(undefined);

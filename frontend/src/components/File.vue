@@ -4,9 +4,9 @@ import { formatDistance } from "date-fns";
 import { fileDetailFormatter } from "../utils/fileDetailFormatter";
 import Filename from "./Filename.vue";
 import { type CloudChestFile } from "../models/file";
-import { trashFile, updateFile, patchFile } from "../utils/filesApi";
+import { trashFile, patchFile } from "../utils/filesApi";
 import { type FilePatchRequest } from "../models/requestModel";
-import {FileTypeCategorizer, type FileCategory} from "../utils/fileTypeCategorizer";
+import {FileTypeCategorizer} from "../utils/fileTypeCategorizer";
 
 const props = defineProps<{
   file: CloudChestFile

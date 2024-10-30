@@ -2,7 +2,6 @@ import axios from "axios";
 import { CloudChestFile, type FileResponse } from "../models/file";
 import { type PresignedURL } from "../models/presignedUrl";
 import { useEventEmitterStore } from "../stores/eventEmitterStore";
-import { FILE_UPDATED } from "../constants";
 import { type FilePatchRequest } from "../models/requestModel";
 
 export async function getFilesFromCode(folderCode: string): Promise<CloudChestFile[]> {

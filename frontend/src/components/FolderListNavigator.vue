@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import type Folder from "../models/folder";
-import { getFolderList, getRootFolder } from "../utils/foldersApi";
+import { getRootFolder } from "../utils/foldersApi";
 import FolderListView from "./FolderListView.vue";
 import { onMounted, type Ref, ref, provide } from "vue";
 
