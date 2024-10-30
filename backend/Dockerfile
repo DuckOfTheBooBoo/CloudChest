@@ -1,6 +1,6 @@
 # backend/Dockerfile
 # Use the Go image to build the application
-FROM golang:1.19-alpine as build
+FROM golang:1.22-alpine as build
 
 # Set working directory and copy files
 WORKDIR /app

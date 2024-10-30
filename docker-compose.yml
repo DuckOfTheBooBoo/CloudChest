@@ -24,12 +24,11 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
-    entrypoint: ["/bin/sh", "-c", "/minio-setup.sh && minio server /data --console-address :9001"]
 
   # MariaDB service
   db:
     image: mariadb
-    ports:
+    # ports:
       # - "3306:3306"
     healthcheck:
       test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
@@ -54,8 +53,8 @@ services:
         condition: service_healthy
       minio:
         condition: service_healthy
-    ports:
-      -"3000:3000"
+    # ports:
+      # -"3000:3000"
     environment:
       DB_NAME: web_gallery_db
       DB_HOST: db # Use the Docker service name for MariaDB
@@ -74,7 +73,7 @@ services:
     depends_on:
       - backend
     ports:
-      - "80:80"
+      - "8080:80"
     networks:
       - app-network
 
