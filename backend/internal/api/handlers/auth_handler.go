@@ -32,7 +32,7 @@ func (ah *AuthHandler) UserLogin(c *gin.Context) {
 
 	var loginBody struct {
 		Email    string `validate:"required,email"`
-		Password string `validate:"required,min=6"`
+		Password string `validate:"required"`
 	}
 
 	err := c.BindJSON(&loginBody)

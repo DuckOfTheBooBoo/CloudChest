@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref } from "vue";
 import { useField, useForm } from "vee-validate";
-import axios from "axios";
+import axios, { AxiosError } from "axios";
 import { useRouter } from "vue-router";
 
 const router = useRouter();
@@ -27,11 +27,12 @@ const { handleSubmit } = useForm({
 
       return "Must be a valid e-mail.";
     },
-    password(value: string) {
-      if (/(?=.*\d).{6}/.test(value)) return true;
+    // password(value: string) {
+      // if (value === "" || value == undefined) return "Password is required.";
+      // if (/(?=.*\d).{6}/.test(value)) return true;
 
-      return "Password must consists of 6 characters and include numbers.";
-    },
+      // return "Password must consists of 6 characters and include numbers.";
+    // },
   },
 });
 
@@ -59,18 +60,22 @@ const submit = handleSubmit(async (values) => {
         }
       }
     );
-    if (response.status == 200) {
+    if (response.status === 200) {
       localStorage.setItem("token", response.data.token);
       axios.defaults.headers.common['Authorization'] = 'Bearer ' + localStorage.getItem('token');
       loading.value = false;
       currentProgMsg.value = "Login successful. Redirecting...";
       router.push("/explorer");
-    } else {
-      currentProgMsg.value = "Login failed. Please try again.";
     }
   } catch (error: Error | any) {
-    console.error(error);
-    currentProgMsg.value = error.response.data.error;
+    const err = error as AxiosError;
+    
+    if (err.response?.status === 401) {
+      currentProgMsg.value = "Invalid credentials.";
+    } else {
+      console.error(error);
+      currentProgMsg.value = error.response.data.error;
+    }
   }
   loading.value = false;
 });
@@ -118,6 +123,7 @@ const submit = handleSubmit(async (values) => {
             v-model="password.value.value"
             :error-messages="password.errorMessage.value"
             label="Password"
+            :type="visible ? 'text' : 'password'"
             id="password"
             variant="outlined"
             spellcheck="false"
