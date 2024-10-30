@@ -5,12 +5,12 @@ services:
     container_name: minio1
     ports:
         - "9000:9000"
-        - "9001:9001"
+        # - "9001:9001" # uncomment to expose the MinIO web console
     volumes:
       - minio_data:/data
     environment:
       MINIO_ROOT_USER: root
-      MINIO_ROOT_PASSWORD: password
+      MINIO_ROOT_PASSWORD: password # change this
     command: ["server", "/data", "--console-address", ":9001"]
 
   db:
@@ -18,14 +18,14 @@ services:
     ports:
       - "3306:3306"
     environment:
-      MARIADB_ROOT_PASSWORD: password
+      MARIADB_ROOT_PASSWORD: password # change this
       MARIADB_DATABASE: web_gallery_db
     volumes:
       - mariadb_data:/var/lib/mysql:Z
-    deploy:
-      resources:
-        limits:
-          memory: 1G  
+    # deploy:
+      # resources:
+        # limits:
+        #   memory: 1G  
 
 volumes:
   minio_data:
