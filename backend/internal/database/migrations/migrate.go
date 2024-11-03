@@ -14,6 +14,7 @@ func init() {
 
 func main() {
 	db, err := database.ConnectToDB()
+	log.Println("(Migrate) Connected to DB")
 
 	if err != nil {
 		log.Fatal(err)
@@ -21,9 +22,12 @@ func main() {
 
 	gormDB := db.GetDB()
 
+	log.Println("(Migrate) Migrating...")
 	migErr := gormDB.AutoMigrate(&models.User{}, &models.Token{}, &models.Folder{}, &models.File{}, &models.Thumbnail{})
 
 	if migErr != nil {
+		log.Println("(Migrate) Migration Failed")
 		log.Fatal(migErr)
 	}
+	log.Println("(Migrate) Migration Successful")
 }
