@@ -13,6 +13,9 @@ RUN go build -o migrator ./internal/database/migrations/migrate.go
 
 # Use a smaller image for running the app
 FROM alpine:latest
+
+# Install ffmpeg
+RUN apk add --no-cache ffmpeg
 WORKDIR /root/
 COPY --from=build /app/migrator .
 COPY --from=build /app/server .
