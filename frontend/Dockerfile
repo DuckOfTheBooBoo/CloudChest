@@ -14,8 +14,7 @@ RUN pnpm run build
 # Use Nginx to serve the static files
 FROM nginx:alpine
 COPY --from=build /app/dist /usr/share/nginx/html
-
-COPY ./nginx.conf /etc/nginx/nginx.conf
+COPY --from=build /app/nginx.conf /etc/nginx/nginx.conf
 
 # Expose port 80 for Nginx
 EXPOSE 80
