@@ -1,5 +1,4 @@
-version: '3.8'
-name: web-gallery-app
+name: CloudChest
 
 services:
   # MinIO service
