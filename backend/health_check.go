@@ -2,6 +2,7 @@ package main
 
 import (
 	"log"
+	"os"
 
 	"github.com/DuckOfTheBooBoo/web-gallery-app/backend/internal/database"
 	"github.com/DuckOfTheBooBoo/web-gallery-app/backend/internal/models"
@@ -14,20 +15,24 @@ func init() {
 
 func main() {
 	db, err := database.ConnectToDB()
-	log.Println("(Migrate) Connected to DB")
 
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	gormDB := db.GetDB()
+	_, err = database.ConnectToMinIO()
 
-	log.Println("(Migrate) Migrating...")
-	migErr := gormDB.AutoMigrate(&models.User{}, &models.Token{}, &models.Folder{}, &models.File{}, &models.Thumbnail{})
-
-	if migErr != nil {
-		log.Println("(Migrate) Migration Failed")
-		log.Fatal(migErr)
+	if err != nil {
+		log.Fatal(err)
 	}
-	log.Println("(Migrate) Migration Successful")
+
+
+	var tables = []interface{}{models.User{}, models.Token{}, models.Folder{}, models.File{}, models.Thumbnail{}}
+	for _, table := range tables {
+		if !db.GetDB().Migrator().HasTable(table) {
+			log.Fatal(table)
+		}
+	}
+
+	os.Exit(0)
 }

@@ -1,5 +1,4 @@
-version: '3.8'
-name: web-gallery-app
+name: CloudChest
 
 services:
   # MinIO service
@@ -64,6 +63,11 @@ services:
       MINIO_ACCESS_KEY: root # same as minio MINI_ROOT_USER
       MINIO_SECRET_KEY: password # same as minio MINIO_ROOT_PASSWORD
       GO_ENV: production
+    healthcheck:
+      test: ["CMD", "./health_check"]
+      interval: 3s
+      timeout: 5s
+      retries: 5
     networks:
       - app-network
 
@@ -72,7 +76,8 @@ services:
     build:
       context: ./frontend
     depends_on:
-      - backend
+      backend:
+        condition: service_healthy
     ports:
       - "8080:80"
     networks:
