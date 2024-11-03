@@ -1,6 +1,6 @@
 # frontend/Dockerfile
 # Use the Node.js image to build the Vue.js app
-FROM node:18-alpine as build
+FROM node:18-alpine AS build
 
 # Set working directory and copy files
 WORKDIR /app
