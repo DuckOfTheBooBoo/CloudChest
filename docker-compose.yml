@@ -60,9 +60,9 @@ services:
       DB_NAME: cloudchest
       DB_HOST: db # Use the Docker service name for MariaDB
       DB_USER: root 
-      DB_PASS: password # same as db MARIADB_ROOT_USER
+      DB_PASS: password # same as db MARIADB_ROOT_PASSWORD
       MINIO_ENDPOINT: minio:9000  # Use the MinIO service name within Docker network
-      MINIO_ACCESS_KEY: root # same as minio MINI_ROOT_USER
+      MINIO_ACCESS_KEY: root # same as minio MINIO_ROOT_USER
       MINIO_SECRET_KEY: password # same as minio MINIO_ROOT_PASSWORD
       GO_ENV: production
     healthcheck:
