@@ -8,7 +8,7 @@ COPY . .
 
 # Install dependencies and build the app
 RUN npm i -g pnpm
-RUN pnpm install
+RUN pnpm install --force
 RUN pnpm run build
 
 # Use Nginx to serve the static files
