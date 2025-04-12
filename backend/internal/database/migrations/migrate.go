@@ -1,4 +1,4 @@
-package main
+package migrations
 
 import (
 	"log"
@@ -12,13 +12,7 @@ func init() {
 	utils.LoadEnv()
 }
 
-func main() {
-	db, err := database.ConnectToDB()
-
-	if err != nil {
-		log.Fatal(err)
-	}
-
+func Migrate(db database.Database) error {
 	gormDB := db.GetDB()
 
 	migErr := gormDB.AutoMigrate(&models.User{}, &models.Token{}, &models.Folder{}, &models.File{}, &models.Thumbnail{})
@@ -26,4 +20,6 @@ func main() {
 	if migErr != nil {
 		log.Fatal(migErr)
 	}
+
+	return migErr
 }
