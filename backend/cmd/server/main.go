@@ -43,7 +43,9 @@ func main() {
 
 	// Check if the database is migrated
 	if !isDatabaseMigrated(db) {
-		migrations.Migrate(db)
+		if err := migrations.Migrate(db); err != nil {
+			log.Fatal(err)
+		}
 		log.Println("Database migrated successfully")
 	} else {
 		log.Println("Database is already migrated")

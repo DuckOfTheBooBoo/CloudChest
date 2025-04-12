@@ -18,5 +18,5 @@ func Migrate(db database.Database) error {
 	log.Println("(Migrate) Migrating...")
 	migErr := gormDB.AutoMigrate(&models.User{}, &models.Token{}, &models.Folder{}, &models.File{}, &models.Thumbnail{})
 
-  return migErr
+  	return migErr
 }
