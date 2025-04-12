@@ -8,7 +8,6 @@ import File from "../File.vue";
 import Folder from "../Folder.vue";
 import FolderModel from "../../models/folder";
 import { useEventEmitterStore } from "../../stores/eventEmitterStore";
-import { FILE_UPDATED, FOLDER_UPDATED } from "../../constants";
 import type FolderHierarchy from "../../models/folderHierarchy";
 
 const emit = defineEmits<{

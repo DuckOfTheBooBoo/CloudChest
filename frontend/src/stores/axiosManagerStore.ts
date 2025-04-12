@@ -3,7 +3,6 @@ import axios, { type CancelTokenSource, type AxiosRequestConfig, type AxiosProgr
 import type RequestData from "../models/requestData";
 import { reactive } from "vue";
 import { useEventEmitterStore } from "./eventEmitterStore"
-import { FILE_UPDATED } from "../constants";
 import { CloudChestFile, FileResponse } from "../models/file";
 
 export const useAxiosManagerStore = defineStore("axiosManager", {

@@ -2,7 +2,6 @@ import axios from "axios";
 import type Folder from "../models/folder";
 import type FolderHierarchy from "../models/folderHierarchy";
 import { useEventEmitterStore } from "../stores/eventEmitterStore";
-import { FOLDER_UPDATED } from "../constants";
 import { type FolderPatchRequest } from "../models/requestModel";
 
 export interface getFoldersResponse {

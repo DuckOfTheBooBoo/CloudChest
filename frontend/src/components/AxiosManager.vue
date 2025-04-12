@@ -1,8 +1,6 @@
 <script setup lang="ts">
 import { ref } from "vue";
 import AxiosRequest from "./AxiosRequest.vue";
-import axios from "axios";
-import type RequestData from "../models/requestData";
 import { useAxiosManagerStore } from "../stores/axiosManagerStore.ts";
 
 const expand = ref<boolean>(true);

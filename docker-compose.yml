@@ -1,34 +1,93 @@
-name: web-gallery-app
+name: CloudChest
+
 services:
+  # MinIO service
   minio:
     image: quay.io/minio/minio:latest
     container_name: minio1
-    ports:
-        - "9000:9000"
-        - "9001:9001"
+    # ports:
+    #   - "9000:9000"
+      # Uncomment below to expose the MinIO web console
+      # - "9001:9001"
     volumes:
       - minio_data:/data
+      - ./minio-setup.sh:/minio-setup.sh  # Add setup script
     environment:
       MINIO_ROOT_USER: root
-      MINIO_ROOT_PASSWORD: password
+      MINIO_ROOT_PASSWORD: password # Change this to a secure password
     command: ["server", "/data", "--console-address", ":9001"]
+    networks:
+      - app-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
+  # MariaDB service
   db:
     image: mariadb
-    ports:
-      - "3306:3306"
+    # ports:
+      # - "3306:3306"
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      start_period: 10s
+      interval: 10s
+      timeout: 5s
+      retries: 3
     environment:
-      MARIADB_ROOT_PASSWORD: password
+      MARIADB_ROOT_PASSWORD: password # Change this to a secure password
       MARIADB_DATABASE: web_gallery_db
     volumes:
       - mariadb_data:/var/lib/mysql:Z
-    deploy:
-      resources:
-        limits:
-          memory: 1G  
+    networks:
+      - app-network
+
+  # Backend service (Golang)
+  backend:
+    build:
+      context: ./backend
+    depends_on:
+      db:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+    ports:
+      - "3000:3000"
+    environment:
+      DB_NAME: web_gallery_db
+      DB_HOST: db # Use the Docker service name for MariaDB
+      DB_USER: root 
+      DB_PASS: password # same as db MARIADB_ROOT_USER
+      MINIO_ENDPOINT: minio:9000  # Use the MinIO service name within Docker network
+      MINIO_ACCESS_KEY: root # same as minio MINI_ROOT_USER
+      MINIO_SECRET_KEY: password # same as minio MINIO_ROOT_PASSWORD
+      GO_ENV: production
+    healthcheck:
+      test: ["CMD", "./health_check"]
+      interval: 3s
+      timeout: 5s
+      retries: 5
+    networks:
+      - app-network
+
+  # Frontend service (Vue.js)
+  frontend:
+    build:
+      context: ./frontend
+    depends_on:
+      backend:
+        condition: service_healthy
+    ports:
+      - "8080:80"
+    networks:
+      - app-network
 
 volumes:
   minio_data:
     driver: local
   mariadb_data:
     driver: local
+
+networks:
+  app-network:

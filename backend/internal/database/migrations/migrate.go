@@ -12,14 +12,11 @@ func init() {
 	utils.LoadEnv()
 }
 
-func Migrate(db database.Database) error {
+func Migrate(db database.Database) error {  
 	gormDB := db.GetDB()
 
+	log.Println("(Migrate) Migrating...")
 	migErr := gormDB.AutoMigrate(&models.User{}, &models.Token{}, &models.Folder{}, &models.File{}, &models.Thumbnail{})
 
-	if migErr != nil {
-		log.Fatal(migErr)
-	}
-
-	return migErr
+  return migErr
 }

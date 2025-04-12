@@ -36,3 +36,5 @@ go.work
 backend
 *.rest
 start.sh
+
+!Dockerfile
