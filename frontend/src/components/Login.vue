@@ -1,10 +1,11 @@
 <script setup lang="ts">
-import { ref } from "vue";
+import { onMounted, ref } from "vue";
 import { useField, useForm } from "vee-validate";
 import axios, { AxiosError } from "axios";
-import { useRouter } from "vue-router";
+import { useRoute, useRouter } from "vue-router";
 
 const router = useRouter();
+const route = useRoute();
 
 interface LoginBody {
   email: string;
@@ -28,10 +29,10 @@ const { handleSubmit } = useForm({
       return "Must be a valid e-mail.";
     },
     // password(value: string) {
-      // if (value === "" || value == undefined) return "Password is required.";
-      // if (/(?=.*\d).{6}/.test(value)) return true;
+    // if (value === "" || value == undefined) return "Password is required.";
+    // if (/(?=.*\d).{6}/.test(value)) return true;
 
-      // return "Password must consists of 6 characters and include numbers.";
+    // return "Password must consists of 6 characters and include numbers.";
     // },
   },
 });
@@ -42,6 +43,7 @@ const password = useField("password");
 let visible = ref(false);
 let loading = ref(false);
 let currentProgMsg = ref("");
+const snackbar = ref(false);
 
 const submit = handleSubmit(async (values) => {
   const body: LoginBody = {
@@ -51,25 +53,22 @@ const submit = handleSubmit(async (values) => {
 
   try {
     loading.value = true;
-    const response = await axios.post<TokenResponse>(
-      "/api/auth/login",
-      body,
-      {
-        params: {
-          referer: window.location.hostname
-        }
-      }
-    );
+    const response = await axios.post<TokenResponse>("/api/auth/login", body, {
+      params: {
+        referer: window.location.hostname,
+      },
+    });
     if (response.status === 200) {
       localStorage.setItem("token", response.data.token);
-      axios.defaults.headers.common['Authorization'] = 'Bearer ' + localStorage.getItem('token');
+      axios.defaults.headers.common["Authorization"] =
+        "Bearer " + localStorage.getItem("token");
       loading.value = false;
       currentProgMsg.value = "Login successful. Redirecting...";
       router.push("/explorer");
     }
   } catch (error: Error | any) {
     const err = error as AxiosError;
-    
+
     if (err.response?.status === 401) {
       currentProgMsg.value = "Invalid credentials.";
     } else {
@@ -79,9 +78,29 @@ const submit = handleSubmit(async (values) => {
   }
   loading.value = false;
 });
+
+
+onMounted(() => {
+  // Show snackbar if the expired param from route is === 'true'
+  if (route.query?.expired === "true") {
+    snackbar.value = true;
+    setTimeout(() => {
+      snackbar.value = false;
+    }, 5000);
+  }
+})
 </script>
 
 <template>
+  <v-snackbar v-model="snackbar">
+    Session has expired, please log in again
+    <!-- <template v-slot:actions>
+      <v-btn color="pink" variant="text" @click="snackbar = false">
+        Close
+      </v-btn>
+    </template> -->
+  </v-snackbar>
+
   <div class="parent-div">
     <v-card
       max-width="25rem"
@@ -125,7 +144,6 @@ const submit = handleSubmit(async (values) => {
             label="Password"
             :type="visible ? 'text' : 'password'"
             id="password"
-            
             variant="outlined"
             spellcheck="false"
             @click:append-inner="visible = !visible"

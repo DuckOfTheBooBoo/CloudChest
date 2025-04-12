@@ -1,4 +1,4 @@
-package main
+package migrations
 
 import (
 	"log"
@@ -12,22 +12,11 @@ func init() {
 	utils.LoadEnv()
 }
 
-func main() {
-	db, err := database.ConnectToDB()
-	log.Println("(Migrate) Connected to DB")
-
-	if err != nil {
-		log.Fatal(err)
-	}
-
+func Migrate(db database.Database) error {  
 	gormDB := db.GetDB()
 
 	log.Println("(Migrate) Migrating...")
 	migErr := gormDB.AutoMigrate(&models.User{}, &models.Token{}, &models.Folder{}, &models.File{}, &models.Thumbnail{})
 
-	if migErr != nil {
-		log.Println("(Migrate) Migration Failed")
-		log.Fatal(migErr)
-	}
-	log.Println("(Migrate) Migration Successful")
+  return migErr
 }
