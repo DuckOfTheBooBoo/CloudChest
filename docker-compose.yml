@@ -5,6 +5,7 @@ services:
   minio:
     image: quay.io/minio/minio:latest
     container_name: minio1
+    # TODO: Check if the blocked ports still allow download that uses presigned URL of MinIO
     # ports:
     #   - "9000:9000"
       # Uncomment below to expose the MinIO web console
@@ -37,7 +38,7 @@ services:
       retries: 3
     environment:
       MARIADB_ROOT_PASSWORD: password # Change this to a secure password
-      MARIADB_DATABASE: web_gallery_db
+      MARIADB_DATABASE: cloudchest
     volumes:
       - mariadb_data:/var/lib/mysql:Z
     networks:
@@ -47,6 +48,7 @@ services:
   backend:
     build:
       context: ./backend
+      network: host
     depends_on:
       db:
         condition: service_healthy
@@ -55,12 +57,12 @@ services:
     ports:
       - "3000:3000"
     environment:
-      DB_NAME: web_gallery_db
+      DB_NAME: cloudchest
       DB_HOST: db # Use the Docker service name for MariaDB
       DB_USER: root 
-      DB_PASS: password # same as db MARIADB_ROOT_USER
+      DB_PASS: password # same as db MARIADB_ROOT_PASSWORD
       MINIO_ENDPOINT: minio:9000  # Use the MinIO service name within Docker network
-      MINIO_ACCESS_KEY: root # same as minio MINI_ROOT_USER
+      MINIO_ACCESS_KEY: root # same as minio MINIO_ROOT_USER
       MINIO_SECRET_KEY: password # same as minio MINIO_ROOT_PASSWORD
       GO_ENV: production
     healthcheck:
@@ -75,6 +77,7 @@ services:
   frontend:
     build:
       context: ./frontend
+      network: host
     depends_on:
       backend:
         condition: service_healthy

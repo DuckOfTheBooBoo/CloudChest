@@ -1,11 +1,14 @@
 package main
 
 import (
+	"fmt"
 	"log"
+	"os"
 
 	"github.com/DuckOfTheBooBoo/web-gallery-app/backend/internal/api/handlers"
 	"github.com/DuckOfTheBooBoo/web-gallery-app/backend/internal/api/routes"
 	"github.com/DuckOfTheBooBoo/web-gallery-app/backend/internal/database"
+	"github.com/DuckOfTheBooBoo/web-gallery-app/backend/internal/database/migrations"
 	"github.com/DuckOfTheBooBoo/web-gallery-app/backend/internal/middlewares"
 	"github.com/DuckOfTheBooBoo/web-gallery-app/backend/internal/services"
 	"github.com/DuckOfTheBooBoo/web-gallery-app/backend/pkg/utils"
@@ -16,6 +19,13 @@ import (
 
 func init() {
 	utils.LoadEnv()
+}
+
+func isDatabaseMigrated(db database.Database) bool {
+	var result []string
+	rawSQL := fmt.Sprintf("SHOW TABLES FROM %s;", os.Getenv("DB_NAME"))
+	db.GetDB().Raw(rawSQL).Scan(&result)
+	return len(result) > 0
 }
 
 func main() {
@@ -29,6 +39,16 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 		return
+	}
+
+	// Check if the database is migrated
+	if !isDatabaseMigrated(db) {
+		if err := migrations.Migrate(db); err != nil {
+			log.Fatal(err)
+		}
+		log.Println("Database migrated successfully")
+	} else {
+		log.Println("Database is already migrated")
 	}
 
 	// Set a lower memory limit for multipart forms (default is 32 MiB)

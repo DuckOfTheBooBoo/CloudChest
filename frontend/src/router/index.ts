@@ -56,7 +56,14 @@ router.beforeEach(async (to, from, next) => {
     const isValid = await checkTokenValidation();
 
     if (!isValid && to.name !== 'login' && to.name !== 'signup') {
-      next({ name: 'login' });
+      const token = localStorage.getItem('token');
+      if (token) {
+        const payload = JSON.parse(atob(token.split('.')[1]));
+        if (payload.exp * 1000 < Date.now()) { // Snackbar trigger
+          localStorage.removeItem('token');
+          next({ name: 'login', query: { expired: 'true' } });
+        }
+      } else next({ name: 'login' });
     } else if (isValid && (to.name === 'login' || to.name === 'signup')) {
       next({ name: 'explorer-files' });
     } else {
