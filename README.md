@@ -52,23 +52,20 @@ CloudChest is a "Google Drive"-like web application focused on core file and fol
 ---
 
 ## Showcase
+### Create a new folder and upload a file
 https://github.com/user-attachments/assets/2e20b016-5226-4645-9ab2-92b964874201
 
-
+### View uploaded images and videos
 https://github.com/user-attachments/assets/9515a1da-9541-4e32-b26f-df41ecf9f9c5
 
-
-
+### Bookmark your favorite files or folders
 https://github.com/user-attachments/assets/c98c57b6-87e7-480f-b3dc-c0b2c3ecce8c
 
-
-
+### Recycle bin mechanism
 https://github.com/user-attachments/assets/f0d89597-c6e5-44ab-abaa-2d380ea24ea6
 
-
-
+### Download your uploaded file
 https://github.com/user-attachments/assets/cb116f0b-2d38-4a69-8e73-9396e84f7f9f
-
 
 ---
 
