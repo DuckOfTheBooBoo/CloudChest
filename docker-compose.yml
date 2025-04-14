@@ -10,11 +10,6 @@ services:
   minio:
     image: quay.io/minio/minio:latest
     container_name: minio1
-    # TODO: Check if the blocked ports still allow download that uses presigned URL of MinIO
-    # ports:
-    #   - "9000:9000"
-      # Uncomment below to expose the MinIO web console
-      # - "9001:9001"
     volumes:
       - minio_data:/data
       - ./minio-setup.sh:/minio-setup.sh  # Add setup script
