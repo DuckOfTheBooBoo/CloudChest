@@ -11,22 +11,68 @@ import (
 	"gorm.io/gorm"
 )
 
-type UserService struct {
+// --- Interfaces ---
+
+// UserCreator defines the interface for creating a user.
+type UserCreator interface {
+	Create(user *models.User) error
+}
+
+// BucketCreator defines the interface for creating a Minio bucket.
+type BucketCreator interface {
+	MakeBucket(ctx context.Context, bucketName string, opts minio.MakeBucketOptions) error
+}
+
+// --- Concrete Implementations ---
+
+// GormUserCreator implements UserCreator using *gorm.DB.
+type GormUserCreator struct {
 	DB *gorm.DB
-	MinioClient *minio.Client
 }
 
-func (us *UserService) SetDB(db *gorm.DB) {
-	us.DB = db
+// NewGormUserCreator creates a new GormUserCreator.
+func NewGormUserCreator(db *gorm.DB) *GormUserCreator {
+	return &GormUserCreator{DB: db}
 }
 
-func (us *UserService) SetMinioClient(mc *minio.Client) {
+// Create creates a user record in the database.
+func (guc *GormUserCreator) Create(user *models.User) error {
+	return guc.DB.Create(user).Error
+}
+
+// MinioBucketCreator implements BucketCreator using *minio.Client.
+type MinioBucketCreator struct {
+	Client *minio.Client
+}
+
+// NewMinioBucketCreator creates a new MinioBucketCreator.
+func NewMinioBucketCreator(client *minio.Client) *MinioBucketCreator {
+	return &MinioBucketCreator{Client: client}
+}
+
+// MakeBucket creates a bucket in Minio.
+func (mbc *MinioBucketCreator) MakeBucket(ctx context.Context, bucketName string, opts minio.MakeBucketOptions) error {
+	return mbc.Client.MakeBucket(ctx, bucketName, opts)
+}
+
+// --- UserService ---
+
+type UserService struct {
+	UserDB      UserCreator    // Changed from DB *gorm.DB
+	MinioClient BucketCreator  // Changed from MinioClient *minio.Client
+}
+
+func (us *UserService) SetDB(userDB UserCreator) { // Updated to accept UserCreator
+	us.UserDB = userDB
+}
+
+func (us *UserService) SetMinioClient(mc BucketCreator) { // Updated to accept BucketCreator
 	us.MinioClient = mc
 }
 
-func NewUserService(db *gorm.DB, mc *minio.Client) *UserService {
+func NewUserService(userDB UserCreator, mc BucketCreator) *UserService { // Updated parameters
 	return &UserService{
-		DB: db,
+		UserDB:      userDB,
 		MinioClient: mc,
 	}
 }
@@ -67,7 +113,7 @@ func (us *UserService) CreateUser(userBody *models.UserBody) (*models.User, erro
 	}
 
 	// Create user bucket
-	err = us.MinioClient.MakeBucket(ctx, bucketName.String(), minio.MakeBucketOptions{
+	err = us.MinioClient.MakeBucket(ctx, bucketName.String(), minio.MakeBucketOptions{ // Use interface method
 		Region: "us-east-1",
 	})
 	if err != nil {
@@ -80,7 +126,7 @@ func (us *UserService) CreateUser(userBody *models.UserBody) (*models.User, erro
 	}
 
 	// Create service bucket
-	err = us.MinioClient.MakeBucket(ctx, serviceBucketName.String(), minio.MakeBucketOptions{
+	err = us.MinioClient.MakeBucket(ctx, serviceBucketName.String(), minio.MakeBucketOptions{ // Use interface method
 		Region: "us-east-1",
 	})
 	if err != nil {
@@ -107,7 +153,7 @@ func (us *UserService) CreateUser(userBody *models.UserBody) (*models.User, erro
 		},
 	}
 
-	err = us.DB.Create(&user).Error
+	err = us.UserDB.Create(&user) // Use interface method
 	if err != nil {
 		return nil, &apperr.ServerError{
 			BaseError: &apperr.BaseError{
